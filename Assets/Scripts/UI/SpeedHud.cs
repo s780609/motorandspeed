@@ -34,7 +34,8 @@ namespace MotorAndSpeed.UI
             int kilometersPerHour = Mathf.RoundToInt(Mathf.Abs(_target.Speed) * 3.6f);
             string airborne = _target.IsGrounded ? string.Empty : "\n騰空！";
             GUI.Label(new Rect(Screen.width - 340f, Screen.height - 150f, 320f, 130f), $"{kilometersPerHour} km/h{airborne}", _speedStyle);
-            GUI.Label(new Rect(20f, 20f, 600f, 40f), "W / S：油門 / 煞車（停住後倒車）　A / D：轉向　R：回起點", _helpStyle);
+            // 左上角留給小地圖，操作說明放左下角
+            GUI.Label(new Rect(20f, Screen.height - 84f, 600f, 30f), "W / S：油門 / 煞車（停住後倒車）　A / D：轉向　R：回起點", _helpStyle);
         }
     }
 }

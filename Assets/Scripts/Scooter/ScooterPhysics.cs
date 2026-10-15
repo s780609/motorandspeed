@@ -66,6 +66,31 @@ namespace MotorAndSpeed.Scooter
         /// 計算車身傾斜角度（繞前進軸）。往右轉時車身往右倒，角度為負數。
         /// </summary>
         /// <returns>傾斜角度（度）</returns>
+        /// <summary>
+        /// 計算被撞後車頭要偏幾度：車頭往撞擊的反方向偏，撞得越大力偏越多（有上限）。
+        /// </summary>
+        /// <param name="impactSpeed">撞擊速度（m/s）</param>
+        /// <param name="hitSide">撞擊點在車身哪一側：正數右側、負數左側、0 正面</param>
+        /// <param name="settings">操控參數</param>
+        /// <returns>偏轉角度（度），正數為往右</returns>
+        public static float ComputeImpactYaw(float impactSpeed, float hitSide, ScooterSettings settings)
+        {
+            if (impactSpeed < settings.ImpactThreshold || hitSide == 0f)
+                return 0f;
+
+            float degrees = Mathf.Min(settings.MaxImpactYaw, (impactSpeed - settings.ImpactThreshold) * settings.ImpactYawPerSpeed);
+
+            return hitSide > 0f ? -degrees : degrees;
+        }
+
+        /// <summary>
+        /// 計算撞擊的晃動強度（0~1），用在鏡頭與車身的晃動。
+        /// </summary>
+        public static float ComputeImpactShake(float impactSpeed, ScooterSettings settings)
+        {
+            return Mathf.Clamp01((impactSpeed - settings.ImpactThreshold) / settings.ImpactShakeRange);
+        }
+
         public static float ComputeLeanAngle(float steer, float speed, ScooterSettings settings)
         {
             float speedFactor = Mathf.Clamp01(Mathf.Abs(speed) / settings.LeanFullSpeed);

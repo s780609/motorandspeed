@@ -2,7 +2,8 @@
     "name": "MotorAndSpeed",
     "rootNamespace": "MotorAndSpeed",
     "references": [
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -16,12 +16,35 @@ namespace MotorAndSpeed.Cameras
         [SerializeField] private float _followSharpness = 10f;
         [SerializeField] private float _baseFieldOfView = 60f;
         [SerializeField] private float _maxFieldOfView = 78f;
+        // 被撞時鏡頭晃動的最大幅度（公尺）與持續時間（秒）
+        [SerializeField] private float _shakeAmplitude = 0.25f;
+        [SerializeField] private float _shakeDuration = 0.45f;
 
         private Camera _camera;
+        private float _shakeStrength;
+        private float _shakeStart = -10f;
 
         private void Awake()
         {
             _camera = GetComponent<Camera>();
+        }
+
+        private void OnEnable()
+        {
+            if (_target != null)
+                _target.Impacted += OnImpacted;
+        }
+
+        private void OnDisable()
+        {
+            if (_target != null)
+                _target.Impacted -= OnImpacted;
+        }
+
+        private void OnImpacted(float strength)
+        {
+            _shakeStrength = strength;
+            _shakeStart = Time.time;
         }
 
         private void LateUpdate()
@@ -36,6 +59,17 @@ namespace MotorAndSpeed.Cameras
             Vector3 desiredPosition = target.position - flatForward * _distance + Vector3.up * _height;
             transform.position = Vector3.Lerp(transform.position, desiredPosition, blend);
             transform.LookAt(target.position + Vector3.up * _lookHeight);
+
+            // 撞擊晃動：用雜訊產生不規則的抖動，隨時間淡出
+            float sinceShake = Time.time - _shakeStart;
+            if (sinceShake < _shakeDuration)
+            {
+                float fade = 1f - sinceShake / _shakeDuration;
+                float amplitude = _shakeAmplitude * _shakeStrength * fade * fade;
+                float x = (Mathf.PerlinNoise(Time.time * 25f, 0f) - 0.5f) * 2f;
+                float y = (Mathf.PerlinNoise(0f, Time.time * 25f) - 0.5f) * 2f;
+                transform.position += (transform.right * x + transform.up * y) * amplitude;
+            }
 
             float speedRatio = Mathf.Clamp01(Mathf.Abs(_target.Speed) / _target.MaxSpeed);
             float targetFieldOfView = Mathf.Lerp(_baseFieldOfView, _maxFieldOfView, speedRatio);

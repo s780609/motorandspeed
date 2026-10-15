@@ -31,6 +31,18 @@ MATERIALS = {
     "helmet": "#FFD23F",         # 安全帽
     "helmet_stripe": "#F7F7F2",  # 安全帽中間白線
     "helmet_visor": "#3A3A3A",   # 帽簷
+    "car_paint": "#E8E8E8",      # 汽車車漆（遊戲中會隨機換色）
+    "car_glass": "#2E3B48",      # 車窗
+    "truck_cab": "#2F6DB5",      # 卡車車頭（遊戲中會隨機換色）
+    "truck_cargo": "#D9DCDF",    # 貨櫃
+    "rider_jacket": "#5B7C99",   # NPC 騎士外套（遊戲中會隨機換色）
+    "rider_pants": "#3B3F4A",
+    "rider_skin": "#E9C2A0",
+    "rider_helmet": "#F2F2F2",   # NPC 安全帽（遊戲中會隨機換色）
+    "bus_paint": "#2E8B57",      # 公車車身下半部（遊戲中會隨機換色）
+    "bus_white": "#F2F2EE",      # 公車車身上半部
+    "tree_trunk": "#6B4F3A",     # 行道樹樹幹
+    "tree_leaf": "#5E9E4A",      # 行道樹樹冠
 }
 
 
@@ -235,6 +247,87 @@ def build_scooter_handlebar():
     return m
 
 
+def build_npc_rider():
+    # 原點與 scooter_body 相同：坐姿騎士，雙手握龍頭
+    m = Model("npc_rider")
+    for side in (1, -1):
+        x0, x1 = sorted((side * 0.05, side * 0.17))
+        m.box(x0, x1, 0.80, 0.95, -0.35, 0.18, "rider_pants")
+        m.box(x0, x1, 0.36, 0.90, 0.08, 0.20, "rider_pants")
+        m.box(x0, x1, 0.36, 0.44, 0.08, 0.30, "seat")
+        m.ellipsoid((side * 0.23, 1.25, 0.17), (0.05, 0.05, 0.36), 6, 4, "rider_jacket", pitch=23)
+    m.extrude([(-0.45, 0.90), (-0.18, 0.90), (-0.08, 1.45), (-0.35, 1.47)], -0.19, 0.19, "rider_jacket")
+    m.ellipsoid((0, 1.60, -0.18), (0.12, 0.12, 0.12), 8, 6, "rider_skin")
+    m.ellipsoid((0, 1.62, -0.19), (0.145, 0.145, 0.145), 10, 12, "rider_helmet", pitch=-10, rows=7)
+    return m
+
+
+def build_car():
+    # 轎車：長 4.5 公尺，車頭朝 +Z，輪子直接做在車身上（NPC 不需要轉輪）
+    m = Model("car")
+    m.extrude([(-2.2, 0.35), (2.2, 0.35), (2.25, 0.6), (2.1, 0.85), (1.2, 0.95),
+               (-1.6, 0.98), (-2.2, 0.9), (-2.25, 0.6)], -0.88, 0.88, "car_paint")
+    m.extrude([(1.1, 0.95), (0.4, 1.42), (-1.1, 1.45), (-1.75, 0.98)], -0.78, 0.78, "car_glass")
+    m.box(-0.72, 0.72, 1.42, 1.48, -1.05, 0.35, "car_paint")
+    for z in (1.35, -1.35):
+        for side in (1, -1):
+            x0, x1 = sorted((side * 0.76, side * 0.95))
+            m.cylinder_x(0.32, z, 0.32, x0, x1, 10, "tire", "rim")
+    for side in (1, -1):
+        x0, x1 = sorted((side * 0.55, side * 0.80))
+        m.box(x0, x1, 0.62, 0.74, 2.18, 2.27, "headlight")
+        m.box(x0, x1, 0.70, 0.80, -2.27, -2.18, "taillight")
+    return m
+
+
+def build_truck():
+    # 大貨車：長 8.6 公尺、高 3.4 公尺
+    m = Model("truck")
+    m.box(-1.2, 1.2, 0.6, 2.7, 2.6, 4.25, "truck_cab")
+    m.box(-1.05, 1.05, 1.7, 2.5, 4.25, 4.29, "car_glass")
+    m.box(-0.9, 0.9, 0.7, 1.3, 4.25, 4.3, "trim")
+    m.box(-1.25, 1.25, 0.45, 0.7, 4.2, 4.35, "trim")
+    m.box(-1.0, 1.0, 0.55, 0.85, -4.25, 2.6, "trim")
+    m.box(-1.25, 1.25, 0.9, 3.4, -4.25, 2.45, "truck_cargo")
+    for z in (3.3, -2.4, -3.5):
+        for side in (1, -1):
+            x0, x1 = sorted((side * 0.95, side * 1.25))
+            m.cylinder_x(0.5, z, 0.5, x0, x1, 10, "tire", "rim")
+    for side in (1, -1):
+        x0, x1 = sorted((side * 0.8, side * 1.1))
+        m.box(x0, x1, 0.8, 0.95, 4.28, 4.33, "headlight")
+        m.box(x0, x1, 0.9, 1.1, -4.3, -4.25, "taillight")
+    return m
+
+
+def build_bus():
+    # 市區公車：長 10.5 公尺、高 3.2 公尺，下半部綠色、上半部白色加整排車窗
+    m = Model("bus")
+    m.box(-1.25, 1.25, 0.45, 1.45, -5.25, 5.25, "bus_paint")
+    m.box(-1.25, 1.25, 1.45, 3.05, -5.25, 5.25, "bus_white")
+    m.box(-1.27, 1.27, 1.65, 2.6, -4.6, 4.2, "car_glass")
+    m.box(-1.1, 1.1, 1.3, 2.75, 5.25, 5.29, "car_glass")
+    m.box(-1.2, 1.2, 3.05, 3.2, -5.0, 5.0, "trim")
+    for z in (3.6, -3.4):
+        for side in (1, -1):
+            x0, x1 = sorted((side * 0.95, side * 1.26))
+            m.cylinder_x(0.5, z, 0.5, x0, x1, 10, "tire", "rim")
+    for side in (1, -1):
+        x0, x1 = sorted((side * 0.8, side * 1.1))
+        m.box(x0, x1, 0.7, 0.85, 5.24, 5.3, "headlight")
+        m.box(x0, x1, 0.8, 1.0, -5.3, -5.24, "taillight")
+    return m
+
+
+def build_tree():
+    # Low-poly 行道樹：細樹幹加兩團樹冠
+    m = Model("tree")
+    m.frustum_y([0.0, 2.4], ["tree_trunk"], lambda y: 0.16 - 0.03 * y / 2.4, 6)
+    m.ellipsoid((0, 3.3, 0), (1.5, 1.2, 1.5), 7, 5, "tree_leaf")
+    m.ellipsoid((0.3, 4.2, -0.2), (1.0, 0.9, 1.0), 6, 4, "tree_leaf")
+    return m
+
+
 def build_traffic_cone():
     m = Model("traffic_cone")
     m.box(-0.20, 0.20, 0.0, 0.03, -0.20, 0.20, "cone_base")
@@ -361,6 +454,22 @@ const cone = load('traffic_cone');
 cone.position.set(1.2, 0, 0.3);
 scene.add(cone);
 
+// NPC 車輛：一般騎士、轎車、大貨車
+const npc = new THREE.Group();
+npc.position.set(-1.6, 0, 0);
+scene.add(npc);
+['scooter_body', 'npc_rider'].forEach((name) => npc.add(load(name)));
+[[__FRONT__], [__REAR__]].forEach((pos) => { const w = load('scooter_wheel'); w.position.set(...pos); npc.add(w); });
+const npcBar = load('scooter_handlebar');
+npcBar.position.set(__BAR__);
+npc.add(npcBar);
+const car = load('car');
+car.position.set(-4.2, 0, 0);
+scene.add(car);
+const truck = load('truck');
+truck.position.set(-8.2, 0, 0);
+scene.add(truck);
+
 const anim = document.getElementById('anim');
 document.getElementById('wire').addEventListener('change', (e) => {
   scene.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => { m.wireframe = e.target.checked; }); });
@@ -395,7 +504,8 @@ HANDLEBAR_POS = (0, 0.98, 0.52)
 def main():
     OUT.mkdir(exist_ok=True)
     models = [build_scooter_body(), build_scooter_wheel(), build_scooter_handlebar(),
-              build_penguin_rider(), build_traffic_cone()]
+              build_penguin_rider(), build_traffic_cone(), build_npc_rider(), build_car(), build_truck(),
+              build_bus(), build_tree()]
     mtl = build_mtl()
     (OUT / "palette.mtl").write_text(mtl, encoding="utf-8")
     obj_texts = {}

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MotorAndSpeed.Cameras;
 using MotorAndSpeed.Scooter;
 using MotorAndSpeed.UI;
@@ -19,7 +20,7 @@ namespace MotorAndSpeed.EditorTools
         private const string MODELS_FOLDER = "Assets/Models";
         private const string MATERIALS_FOLDER = "Assets/Materials/Prototype";
         private const string PHYSICS_MATERIAL_PATH = "Assets/Physics/Frictionless.asset";
-        private const string PREFAB_PATH = "Assets/Prefabs/Scooter.prefab";
+        internal const string PREFAB_PATH = "Assets/Prefabs/Scooter.prefab";
         private const string SCENE_PATH = "Assets/Scenes/Prototype.unity";
         private const float ROAD_WIDTH = 12f;
         private const float ROAD_TOP = 0.02f;
@@ -28,11 +29,6 @@ namespace MotorAndSpeed.EditorTools
         private static readonly Vector3 FrontWheelPosition = new Vector3(0f, 0.24f, 0.65f);
         private static readonly Vector3 RearWheelPosition = new Vector3(0f, 0.24f, -0.65f);
         private static readonly Vector3 HandlebarPosition = new Vector3(0f, 0.98f, 0.52f);
-
-        private static readonly string[] BuildingColors =
-        {
-            "#E8D8C3", "#C9D6DF", "#F2C6B4", "#D5E8D4", "#E6E6E6", "#F7E3AF",
-        };
 
         /// <summary>
         /// 重建 Prefab 與測試場景，並設為建置場景。
@@ -56,14 +52,14 @@ namespace MotorAndSpeed.EditorTools
             SetReference(camera.gameObject.AddComponent<SpeedHud>(), "_target", controller);
 
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(SCENE_PATH, true) };
+            AddSceneToBuild(SCENE_PATH);
             AssetDatabase.SaveAssets();
 
             Bounds bodyBounds = scooter.transform.Find("Visual/scooter_body").GetComponentInChildren<Renderer>().bounds;
             Debug.Log($"[PrototypeSceneBuilder] 完成：{SCENE_PATH}，scooter_body 尺寸 {bodyBounds.size}");
         }
 
-        private static GameObject BuildScooterPrefab()
+        internal static GameObject BuildScooterPrefab()
         {
             EnsureFolder("Assets/Prefabs");
             GameObject root = new GameObject("Scooter");
@@ -113,7 +109,6 @@ namespace MotorAndSpeed.EditorTools
             Material grass = GetMaterial("Grass", "#8DB580");
             Material asphalt = GetMaterial("Asphalt", "#4A4D52");
             Material laneLine = GetMaterial("LaneLine", "#F2F2F2");
-            Material sidewalk = GetMaterial("Sidewalk", "#B9B4AA");
             Material ramp = GetMaterial("Ramp", "#F2A541");
 
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
@@ -136,19 +131,8 @@ namespace MotorAndSpeed.EditorTools
                 BuildRoadSegment(track, corners[i], corners[(i + 1) % corners.Length], asphalt, laneLine);
             }
 
-            // 起點直線兩側的人行道與街屋
-            System.Random random = new System.Random(7);
-            for (int side = -1; side <= 1; side += 2)
-            {
-                CreateBlock("Sidewalk", track, new Vector3(side * 7.5f, 0.05f, 80f), new Vector3(3f, 0.1f, 188f), sidewalk, true);
-                for (float z = -10f; z <= 170f; z += 10f)
-                {
-                    float height = 7f + (float)random.NextDouble() * 9f;
-                    int colorIndex = random.Next(BuildingColors.Length);
-                    Material color = GetMaterial($"Building{colorIndex}", BuildingColors[colorIndex]);
-                    CreateBlock("Building", track, new Vector3(side * 13f, height / 2f, z), new Vector3(8f, height, 9f), color, true);
-                }
-            }
+            // 起點直線兩側的台灣街景
+            TaiwanStreetBuilder.Build(track);
 
             // 跳台：後端貼齊路面，前端約 1.7 公尺高
             CreateBlock("Ramp", track, new Vector3(0f, 0.575f, 110f), new Vector3(6f, 0.6f, 7f), ramp, true, Quaternion.Euler(-14f, 0f, 0f));
@@ -186,13 +170,13 @@ namespace MotorAndSpeed.EditorTools
             }
         }
 
-        private static GameObject CreateBlock(string name, Transform parent, Vector3 position, Vector3 size, Material material, bool withCollider, Quaternion? rotation = null)
+        internal static GameObject CreateBlock(string name, Transform parent, Vector3 position, Vector3 size, Material material, bool withCollider, Quaternion? rotation = null)
         {
             GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
             block.name = name;
             block.transform.SetParent(parent, false);
-            block.transform.position = position;
-            block.transform.rotation = rotation ?? Quaternion.identity;
+            block.transform.localPosition = position;
+            block.transform.localRotation = rotation ?? Quaternion.identity;
             block.transform.localScale = size;
             block.GetComponent<MeshRenderer>().sharedMaterial = material;
             if (!withCollider)
@@ -201,7 +185,7 @@ namespace MotorAndSpeed.EditorTools
             return block;
         }
 
-        private static Transform AddModel(string modelName, Transform parent, Vector3 localPosition)
+        internal static Transform AddModel(string modelName, Transform parent, Vector3 localPosition)
         {
             GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>($"{MODELS_FOLDER}/{modelName}.obj");
             if (model == null)
@@ -213,7 +197,7 @@ namespace MotorAndSpeed.EditorTools
             return instance.transform;
         }
 
-        private static Material GetMaterial(string materialName, string hexColor)
+        internal static Material GetMaterial(string materialName, string hexColor)
         {
             EnsureFolder(MATERIALS_FOLDER);
             string path = $"{MATERIALS_FOLDER}/{materialName}.mat";
@@ -250,14 +234,27 @@ namespace MotorAndSpeed.EditorTools
             return material;
         }
 
-        private static void SetReference(Object target, string propertyName, Object value)
+        /// <summary>
+        /// 把場景加入建置清單（已存在就不重複加入，也不影響其他場景）。
+        /// </summary>
+        internal static void AddSceneToBuild(string scenePath)
+        {
+            List<EditorBuildSettingsScene> scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            if (scenes.Exists(scene => scene.path == scenePath))
+                return;
+
+            scenes.Add(new EditorBuildSettingsScene(scenePath, true));
+            EditorBuildSettings.scenes = scenes.ToArray();
+        }
+
+        internal static void SetReference(Object target, string propertyName, Object value)
         {
             SerializedObject serialized = new SerializedObject(target);
             serialized.FindProperty(propertyName).objectReferenceValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void EnsureFolder(string path)
+        internal static void EnsureFolder(string path)
         {
             if (AssetDatabase.IsValidFolder(path))
                 return;

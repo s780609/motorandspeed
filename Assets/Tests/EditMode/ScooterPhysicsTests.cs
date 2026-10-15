@@ -1,5 +1,6 @@
 using MotorAndSpeed.Scooter;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace MotorAndSpeed.Tests
 {
@@ -119,6 +120,58 @@ namespace MotorAndSpeed.Tests
             float lean = ScooterPhysics.ComputeLeanAngle(-5f, 100f, _settings);
 
             Assert.AreEqual(_settings.MaxLean, lean, 0.0001f);
+        }
+
+        [Test]
+        public void ComputeImpactYaw_LightTouch_NoDeflection()
+        {
+            float yaw = ScooterPhysics.ComputeImpactYaw(1f, 1f, _settings);
+
+            Assert.AreEqual(0f, yaw, 0.0001f);
+        }
+
+        [Test]
+        public void ComputeImpactYaw_HitOnRight_NoseTurnsLeft()
+        {
+            float yaw = ScooterPhysics.ComputeImpactYaw(8f, 0.5f, _settings);
+
+            Assert.Less(yaw, 0f);
+        }
+
+        [Test]
+        public void ComputeImpactYaw_HitOnLeft_NoseTurnsRight()
+        {
+            float yaw = ScooterPhysics.ComputeImpactYaw(8f, -0.5f, _settings);
+
+            Assert.Greater(yaw, 0f);
+        }
+
+        [Test]
+        public void ComputeImpactYaw_HarderHit_DeflectsMoreButCapped()
+        {
+            float soft = Mathf.Abs(ScooterPhysics.ComputeImpactYaw(4f, 1f, _settings));
+            float hard = Mathf.Abs(ScooterPhysics.ComputeImpactYaw(8f, 1f, _settings));
+            float extreme = Mathf.Abs(ScooterPhysics.ComputeImpactYaw(100f, 1f, _settings));
+
+            Assert.Greater(hard, soft);
+            Assert.AreEqual(_settings.MaxImpactYaw, extreme, 0.0001f);
+        }
+
+        [Test]
+        public void ComputeImpactYaw_HeadOn_NoDeflection()
+        {
+            float yaw = ScooterPhysics.ComputeImpactYaw(8f, 0f, _settings);
+
+            Assert.AreEqual(0f, yaw, 0.0001f);
+        }
+
+        [Test]
+        public void ComputeImpactShake_ScalesFromZeroToOne()
+        {
+            Assert.AreEqual(0f, ScooterPhysics.ComputeImpactShake(1f, _settings), 0.0001f);
+            Assert.Greater(ScooterPhysics.ComputeImpactShake(5f, _settings), 0f);
+            Assert.Less(ScooterPhysics.ComputeImpactShake(5f, _settings), 1f);
+            Assert.AreEqual(1f, ScooterPhysics.ComputeImpactShake(50f, _settings), 0.0001f);
         }
 
         private float Simulate(float speed, float throttle, float brake, float seconds)

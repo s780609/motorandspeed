@@ -142,3 +142,99 @@ Ks 0.05 0.05 0.05
 Ns 10
 illum 2
 d 1
+
+newmtl car_paint
+Ka 0 0 0
+Kd 0.9098 0.9098 0.9098
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl car_glass
+Ka 0 0 0
+Kd 0.1804 0.2314 0.2824
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl truck_cab
+Ka 0 0 0
+Kd 0.1843 0.4275 0.7098
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl truck_cargo
+Ka 0 0 0
+Kd 0.8510 0.8627 0.8745
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl rider_jacket
+Ka 0 0 0
+Kd 0.3569 0.4863 0.6000
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl rider_pants
+Ka 0 0 0
+Kd 0.2314 0.2471 0.2902
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl rider_skin
+Ka 0 0 0
+Kd 0.9137 0.7608 0.6275
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl rider_helmet
+Ka 0 0 0
+Kd 0.9490 0.9490 0.9490
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl bus_paint
+Ka 0 0 0
+Kd 0.1804 0.5451 0.3412
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl bus_white
+Ka 0 0 0
+Kd 0.9490 0.9490 0.9333
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl tree_trunk
+Ka 0 0 0
+Kd 0.4196 0.3098 0.2275
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1
+
+newmtl tree_leaf
+Ka 0 0 0
+Kd 0.3686 0.6196 0.2902
+Ks 0.05 0.05 0.05
+Ns 10
+illum 2
+d 1

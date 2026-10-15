@@ -29,5 +29,14 @@ namespace MotorAndSpeed.Scooter
         public float MaxLean = 35f;
         // 達到這個速度時才會壓到最大傾斜
         public float LeanFullSpeed = 10f;
+
+        // 撞擊速度（m/s）低於這個值不算撞擊，例如輕輕擦到
+        public float ImpactThreshold = 1.5f;
+        // 每多 1 m/s 撞擊速度，車頭偏多少度
+        public float ImpactYawPerSpeed = 1.8f;
+        // 車頭最多偏幾度
+        public float MaxImpactYaw = 20f;
+        // 撞擊速度超過門檻多少時，鏡頭晃動達到最大
+        public float ImpactShakeRange = 10f;
     }
 }

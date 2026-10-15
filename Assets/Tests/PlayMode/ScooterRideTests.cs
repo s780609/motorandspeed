@@ -67,6 +67,53 @@ namespace MotorAndSpeed.Tests
             Assert.Greater(_scooter.Speed, 5f, "落地後應該還在前進");
         }
 
+        [UnityTest]
+        public IEnumerator AfterBeingHit_StopsSpinning()
+        {
+            yield return LoadPrototype();
+            yield return new WaitForSeconds(0.5f);
+
+            // 模擬被撞：車身突然帶有繞垂直軸的旋轉
+            _scooter.GetComponent<Rigidbody>().angularVelocity = new Vector3(0f, 8f, 0f);
+            yield return new WaitForSeconds(1f);
+            float before = _scooter.transform.eulerAngles.y;
+            yield return new WaitForSeconds(1f);
+            float after = _scooter.transform.eulerAngles.y;
+
+            Assert.Less(Mathf.Abs(Mathf.DeltaAngle(before, after)), 2f, "被撞之後不應該一直原地打轉");
+        }
+
+        [UnityTest]
+        public IEnumerator SideHit_DeflectsHeadingThenSettles()
+        {
+            yield return LoadPrototype();
+            yield return new WaitForSeconds(0.5f);
+            float before = _scooter.transform.eulerAngles.y;
+
+            // 一個很重的方塊以 9 m/s 從右側撞過來
+            GameObject rammer = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            rammer.transform.localScale = new Vector3(1f, 1.5f, 2f);
+            Rigidbody rammerBody = rammer.AddComponent<Rigidbody>();
+            rammerBody.isKinematic = true;
+            Vector3 right = _scooter.transform.right;
+            rammerBody.position = _scooter.transform.position + right * 2.5f + Vector3.up * 0.8f;
+            for (float t = 0f; t < 0.4f; t += Time.fixedDeltaTime)
+            {
+                rammerBody.MovePosition(rammerBody.position - right * 9f * Time.fixedDeltaTime);
+                yield return new WaitForFixedUpdate();
+            }
+
+            Object.Destroy(rammer);
+            yield return new WaitForSeconds(0.6f);
+            float deflected = Mathf.DeltaAngle(before, _scooter.transform.eulerAngles.y);
+            yield return new WaitForSeconds(1f);
+            float settled = Mathf.DeltaAngle(before, _scooter.transform.eulerAngles.y);
+
+            Assert.Greater(Mathf.Abs(deflected), 3f, "被撞後車頭應該要偏一點");
+            Assert.Less(Mathf.Abs(deflected), 30f, "車頭偏太多了");
+            Assert.Less(Mathf.Abs(settled - deflected), 2f, "偏完之後要穩住，不能繼續轉");
+        }
+
         private IEnumerator LoadPrototype()
         {
             SceneManager.LoadScene("Prototype");
