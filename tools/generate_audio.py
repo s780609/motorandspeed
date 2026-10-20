@@ -246,36 +246,44 @@ def generate_crash():
 # ---------- 街道環境音 ----------
 
 def generate_ambience():
+    # 不用寬頻雜訊（聽起來像麥克風底噪的沙沙聲），只留很低的隆隆聲，車流改用諧波合成的遠方引擎聲
     rng = random.Random(9)
     seconds = 12.0
     length = int(seconds * SR)
     total = length + int(LOOP_FADE * SR)
 
-    # 遠方車流的低頻隆隆聲（棕色雜訊），用整數週期的慢速起伏
-    rumble = normalize(lowpass(lowpass(white(total, rng), 180), 180), 1.0)
-    # 城市空氣的嘶嘶聲
-    hiss = normalize(lowpass(highpass(white(total, rng), 1500), 6000), 1.0)
-    # 中頻的車流聲，由幾台「遠方經過的車」組成
-    traffic = normalize(bandpass(white(total, rng), 500, 0.6), 1.0)
-    passes = [(1.5, 1.6), (4.2, 2.2), (6.8, 1.4), (9.6, 2.0), (11.4, 1.2)]
-
+    # 遠方車流的低頻隆隆聲：三次低通只剩 100 Hz 以下，帶整數週期的慢速起伏
+    rumble = normalize(lowpass(lowpass(lowpass(white(total, rng), 100), 100), 100), 1.0)
     out = []
     for i in range(total):
-        t = i / SR
-        swell = 0.25
-        for center, width in passes:
-            # 環狀距離：接縫兩側的車聲接得起來
-            d = min(abs(t - center), seconds - abs(t - center))
-            swell += math.exp(-(d / (width / 2)) ** 2)
-        slow = 1.0 + 0.25 * math.sin(2 * math.pi * t * 2 / seconds)
-        out.append(0.55 * rumble[i] * slow + 0.35 * traffic[i] * swell + 0.06 * hiss[i])
+        slow = 1.0 + 0.25 * math.sin(2 * math.pi * (i / SR) * 2 / seconds)
+        out.append(0.35 * rumble[i] * slow)
+    out = make_loop(out, length)
+
+    # 遠方經過的車：引擎諧波由小變大再變小，經過時音高往下掉（都卜勒），超過循環長度的部分繞回開頭
+    passes = [(1.5, 1.6, 48.0), (4.2, 2.2, 36.0), (6.8, 1.4, 55.0), (9.6, 2.0, 42.0), (11.4, 1.2, 60.0)]
+    for center, width, base in passes:
+        start = center - width * 1.5
+        count = int(width * 3 * SR)
+        phase = 0.0
+        car = []
+        for i in range(count):
+            t = start + i / SR
+            freq = base * (1.0 + 0.04 * math.tanh((center - t) / (width / 4)))
+            phase += 2 * math.pi * freq / SR
+            swell = math.exp(-((t - center) / (width / 2)) ** 2)
+            car.append(swell * sum(math.sin(h * phase) / h for h in range(1, 7)))
+        car = lowpass(lowpass(car, 600), 600)
+        offset = int(start * SR)
+        for i, v in enumerate(car):
+            out[(offset + i) % length] += 0.5 * v
 
     # 遠方的機車喇叭（很小聲）
     beep = tone(470, 0.12, 0.005, 0.2, ((1, 1.0), (2, 0.4), (3, 0.25)))
-    mix_into(out, beep, int(7.3 * SR), 0.06)
-    mix_into(out, beep, int(7.48 * SR), 0.06)
+    mix_into(out, beep, int(7.3 * SR), 0.03)
+    mix_into(out, beep, int(7.48 * SR), 0.03)
 
-    write_wav("ambience_street", normalize(make_loop(out, length), 0.7))
+    write_wav("ambience_street", normalize(out, 0.5))
 
 
 # ---------- UI / 比賽提示音 ----------
