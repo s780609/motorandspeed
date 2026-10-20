@@ -948,6 +948,11 @@ namespace MotorAndSpeed.EditorTools
                 new PaintSpec("body", "NpcScooterBody", NpcScooterColors),
                 new PaintSpec("rider_jacket", "NpcJacket", JacketColors),
                 new PaintSpec("rider_helmet", "NpcHelmet", HelmetColors));
+            // 8+9：騎得比一般機車快、起步猛；改裝車、破爛車兩種
+            WorldVehicle bajiuTuned = BuildNpcPrefab("NpcScooterBajiu", new Vector3(0f, 0.75f, 0f), new Vector3(0.6f, 1.5f, 1.9f), 15f, 3f, 4.5f, 5f, 1.9f, 0.6f,
+                new PaintSpec("body", "NpcScooterBody", NpcScooterColors));
+            WorldVehicle bajiuJunk = BuildNpcPrefab("NpcScooterBajiuJunk", new Vector3(0f, 0.75f, 0f), new Vector3(0.6f, 1.5f, 1.9f), 14f, 3f, 4f, 5f, 1.9f, 0.6f,
+                new PaintSpec("body", "NpcScooterBody", NpcScooterColors));
             WorldVehicle car = BuildNpcPrefab("NpcCar", new Vector3(0f, 0.75f, 0f), new Vector3(1.8f, 1.5f, 4.5f), 13f, 3f, 2.5f, 5f, 4.5f, 0.7f,
                 new PaintSpec("car_paint", "NpcCarPaint", CarColors));
             WorldVehicle truck = BuildNpcPrefab("NpcTruck", new Vector3(0f, 1.7f, 0f), new Vector3(2.5f, 3.4f, 8.6f), 10f, 1.5f, 1.5f, 4f, 8.6f, 1.2f,
@@ -958,6 +963,12 @@ namespace MotorAndSpeed.EditorTools
             WorldTraffic traffic = new GameObject("Traffic").AddComponent<WorldTraffic>();
             PrototypeSceneBuilder.SetReference(traffic, "_worldJson", worldAsset);
             PrototypeSceneBuilder.SetReference(traffic, "_scooterPrefab", scooter);
+            SerializedObject trafficSettings = new SerializedObject(traffic);
+            SerializedProperty bajiuPrefabs = trafficSettings.FindProperty("_bajiuScooterPrefabs");
+            bajiuPrefabs.arraySize = 2;
+            bajiuPrefabs.GetArrayElementAtIndex(0).objectReferenceValue = bajiuTuned;
+            bajiuPrefabs.GetArrayElementAtIndex(1).objectReferenceValue = bajiuJunk;
+            trafficSettings.ApplyModifiedPropertiesWithoutUndo();
             PrototypeSceneBuilder.SetReference(traffic, "_carPrefab", car);
             PrototypeSceneBuilder.SetReference(traffic, "_truckPrefab", truck);
             PrototypeSceneBuilder.SetReference(traffic, "_busPrefab", bus);
@@ -1021,10 +1032,16 @@ namespace MotorAndSpeed.EditorTools
             collider.center = colliderCenter;
             collider.size = colliderSize;
 
-            if (name == "NpcScooter")
+            if (name.StartsWith("NpcScooter"))
             {
-                PrototypeSceneBuilder.AddModel("scooter_body", root.transform, Vector3.zero);
-                PrototypeSceneBuilder.AddModel("npc_rider", root.transform, Vector3.zero);
+                string scooterBody = name switch
+                {
+                    "NpcScooterBajiu" => "bajiu_scooter_tuned",
+                    "NpcScooterBajiuJunk" => "bajiu_scooter_junk",
+                    _ => "scooter_body",
+                };
+                PrototypeSceneBuilder.AddModel(scooterBody, root.transform, Vector3.zero);
+                PrototypeSceneBuilder.AddModel(name.StartsWith("NpcScooterBajiu") ? "bajiu_rider" : "npc_rider", root.transform, Vector3.zero);
                 PrototypeSceneBuilder.AddModel("scooter_handlebar", root.transform, new Vector3(0f, 0.98f, 0.52f));
                 PrototypeSceneBuilder.AddModel("scooter_wheel", root.transform, new Vector3(0f, 0.24f, 0.65f));
                 PrototypeSceneBuilder.AddModel("scooter_wheel", root.transform, new Vector3(0f, 0.24f, -0.65f));

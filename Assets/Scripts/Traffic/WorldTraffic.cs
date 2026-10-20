@@ -18,6 +18,7 @@ namespace MotorAndSpeed.Traffic
 
         [SerializeField] private TextAsset _worldJson;
         [SerializeField] private WorldVehicle _scooterPrefab;
+        [SerializeField] private WorldVehicle[] _bajiuScooterPrefabs = new WorldVehicle[0];
         [SerializeField] private WorldVehicle _carPrefab;
         [SerializeField] private WorldVehicle _truckPrefab;
         [SerializeField] private WorldVehicle _busPrefab;
@@ -145,9 +146,19 @@ namespace MotorAndSpeed.Traffic
 
         private WorldVehicle PickPrefab(double roll)
         {
-            // 機車最多，其次是汽車，少量貨車與公車
-            if (roll < 0.5)
+            // 機車最多（其中約一成是 8+9，改裝車、破爛車各半），其次是汽車，少量貨車與公車
+            if (roll < 0.45)
                 return _scooterPrefab;
+
+            if (roll < 0.5)
+            {
+                if (_bajiuScooterPrefabs.Length == 0)
+                    return _scooterPrefab;
+
+                int index = Mathf.Min((int)((roll - 0.45) / 0.05 * _bajiuScooterPrefabs.Length), _bajiuScooterPrefabs.Length - 1);
+
+                return _bajiuScooterPrefabs[index];
+            }
 
             if (roll < 0.85)
                 return _carPrefab;

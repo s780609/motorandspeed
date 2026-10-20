@@ -63,6 +63,23 @@ namespace MotorAndSpeed.Tests
         }
 
         [UnityTest]
+        public IEnumerator Traffic_IncludesBajiuScooters()
+        {
+            yield return LoadWorld();
+            int bajiu = 0;
+            foreach (WorldVehicle vehicle in _traffic.Vehicles)
+            {
+                if (!vehicle.name.StartsWith("NpcScooterBajiu"))
+                    continue;
+
+                bajiu++;
+                Assert.IsTrue(vehicle.IsScooter, "8+9 要走機車車道");
+            }
+
+            Assert.GreaterOrEqual(bajiu, 1, "路上應該要有 8+9 騎士");
+        }
+
+        [UnityTest]
         public IEnumerator Traffic_TurnsOntoOtherRoadsAtJunctions()
         {
             yield return LoadWorld();
