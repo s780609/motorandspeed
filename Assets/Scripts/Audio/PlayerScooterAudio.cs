@@ -45,12 +45,15 @@ namespace MotorAndSpeed.Audio
             _horn = CreateSource(_hornClip, true);
             _effects = CreateSource(null, false);
             _pitch = _profile.IdlePitch;
-            _volume = _profile.IdleVolume;
+            // 從無聲淡入到怠速：遊戲啟動第一幀會卡一下，若用 AudioSource 預設音量 1 開播會爆音
+            _volume = 0f;
         }
 
         private void OnEnable()
         {
             _scooter.Impacted += OnImpacted;
+            _engine.pitch = _pitch;
+            _engine.volume = _volume;
             if (_engineClip != null)
                 _engine.Play();
         }

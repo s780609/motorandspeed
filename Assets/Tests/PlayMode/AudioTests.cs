@@ -41,6 +41,20 @@ namespace MotorAndSpeed.Tests
         }
 
         [UnityTest]
+        public IEnumerator Player_EngineStartsSilentAndFadesIn()
+        {
+            yield return Load("WuguWorld");
+            PlayerScooterAudio original = Object.FindFirstObjectByType<PlayerScooterAudio>();
+
+            // 複製一台：Awake、OnEnable 在 Instantiate 當下就跑完，還沒有任何 Update（遊戲啟動第一幀卡住時就是這個狀態）
+            GameObject clone = Object.Instantiate(original.gameObject);
+            PlayerScooterAudio audio = clone.GetComponent<PlayerScooterAudio>();
+            Assert.IsTrue(audio.Engine.isPlaying, "引擎聲一開始就要播放");
+            Assert.LessOrEqual(audio.Engine.volume, 0.01f, "引擎聲開播時要從無聲開始，不能用預設音量 1 爆音");
+            Object.Destroy(clone);
+        }
+
+        [UnityTest]
         public IEnumerator Player_HornPlaysWhileHoldingH()
         {
             yield return Load("WuguWorld");
