@@ -174,6 +174,21 @@ namespace MotorAndSpeed.Tests
             Assert.AreEqual(1f, ScooterPhysics.ComputeImpactShake(50f, _settings), 0.0001f);
         }
 
+        [Test]
+        public void LimitRiseSpeed_CapsCollisionBounceButKeepsRampLaunch()
+        {
+            // 平地擦撞路緣石被推上去：只留很小的上升速度
+            Assert.AreEqual(_settings.MaxBumpRiseSpeed, ScooterPhysics.LimitRiseSpeed(6f, 0f, _settings), 0.0001f);
+
+            // 衝上跳台（斜坡本身的上升速度 4.8 m/s）：照樣飛出去
+            Assert.AreEqual(4.8f, ScooterPhysics.LimitRiseSpeed(4.8f, 4.8f, _settings), 0.0001f);
+            Assert.AreEqual(4.8f, ScooterPhysics.LimitRiseSpeed(9f, 4.8f, _settings), 0.0001f);
+
+            // 往下掉、正常小幅度的上下不受影響
+            Assert.AreEqual(-3f, ScooterPhysics.LimitRiseSpeed(-3f, 0f, _settings), 0.0001f);
+            Assert.AreEqual(0.5f, ScooterPhysics.LimitRiseSpeed(0.5f, 0f, _settings), 0.0001f);
+        }
+
         private float Simulate(float speed, float throttle, float brake, float seconds)
         {
             int steps = (int)(seconds / DELTA_TIME);

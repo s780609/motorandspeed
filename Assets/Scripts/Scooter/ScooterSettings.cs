@@ -38,5 +38,8 @@ namespace MotorAndSpeed.Scooter
         public float MaxImpactYaw = 20f;
         // 撞擊速度超過門檻多少時，鏡頭晃動達到最大
         public float ImpactShakeRange = 10f;
+
+        // 撞擊（例如斜斜擦上路緣石）造成的上升速度上限（m/s），斜坡本身的上升速度不受限
+        public float MaxBumpRiseSpeed = 1.2f;
     }
 }

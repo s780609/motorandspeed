@@ -32,6 +32,7 @@ namespace MotorAndSpeed.UI
         private static readonly Color32 BackgroundColor = new Color32(38, 44, 51, 255);
         private static readonly Color32 MinorRoadColor = new Color32(107, 115, 125, 255);
         private static readonly Color32 MainRoadColor = new Color32(154, 163, 173, 255);
+        private static readonly Color32 ParkColor = new Color32(52, 82, 56, 255);
         private static readonly Color GuideColor = new Color(0.25f, 0.66f, 0.96f);
         private static readonly Color RacerColor = new Color(1f, 0.55f, 0.15f);
 
@@ -385,6 +386,12 @@ namespace MotorAndSpeed.UI
             for (int i = 0; i < pixels.Length; i++)
             {
                 pixels[i] = BackgroundColor;
+            }
+
+            // 公園綠地墊在最底下
+            foreach (ParkData park in data.parks)
+            {
+                MapTextureBuilder.FillPolygon(pixels, TEXTURE_SIZE, park.points.ConvertAll(p => _projection.WorldToPixel(new Vector3(p.x, 0f, p.z))), ParkColor);
             }
 
             // 先畫巷弄，再畫主要道路蓋在上面

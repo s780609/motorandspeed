@@ -58,6 +58,22 @@ namespace MotorAndSpeed.EditorTools
         /// </summary>
         public static Mesh ProfileStrip(IReadOnlyList<Vector3> points, float left, float right, float bottom, float top)
         {
+            float[] lefts = new float[points.Count];
+            float[] rights = new float[points.Count];
+            for (int i = 0; i < points.Count; i++)
+            {
+                lefts[i] = left;
+                rights[i] = right;
+            }
+
+            return ProfileStrip(points, lefts, rights, bottom, top);
+        }
+
+        /// <summary>
+        /// 同上，但每個點的左右偏移可以不同（寬度會變的分隔島）。
+        /// </summary>
+        public static Mesh ProfileStrip(IReadOnlyList<Vector3> points, IReadOnlyList<float> lefts, IReadOnlyList<float> rights, float bottom, float top)
+        {
             List<Vector3> vertices = new List<Vector3>();
             List<Vector3> normals = new List<Vector3>();
             List<int> triangles = new List<int>();
@@ -71,14 +87,14 @@ namespace MotorAndSpeed.EditorTools
 
             for (int i = 0; i < points.Count - 1; i++)
             {
-                Vector3 leftTop0 = points[i] + sides[i] * left + Vector3.up * top;
-                Vector3 rightTop0 = points[i] + sides[i] * right + Vector3.up * top;
-                Vector3 leftBottom0 = points[i] + sides[i] * left + Vector3.up * bottom;
-                Vector3 rightBottom0 = points[i] + sides[i] * right + Vector3.up * bottom;
-                Vector3 leftTop1 = points[i + 1] + sides[i + 1] * left + Vector3.up * top;
-                Vector3 rightTop1 = points[i + 1] + sides[i + 1] * right + Vector3.up * top;
-                Vector3 leftBottom1 = points[i + 1] + sides[i + 1] * left + Vector3.up * bottom;
-                Vector3 rightBottom1 = points[i + 1] + sides[i + 1] * right + Vector3.up * bottom;
+                Vector3 leftTop0 = points[i] + sides[i] * lefts[i] + Vector3.up * top;
+                Vector3 rightTop0 = points[i] + sides[i] * rights[i] + Vector3.up * top;
+                Vector3 leftBottom0 = points[i] + sides[i] * lefts[i] + Vector3.up * bottom;
+                Vector3 rightBottom0 = points[i] + sides[i] * rights[i] + Vector3.up * bottom;
+                Vector3 leftTop1 = points[i + 1] + sides[i + 1] * lefts[i + 1] + Vector3.up * top;
+                Vector3 rightTop1 = points[i + 1] + sides[i + 1] * rights[i + 1] + Vector3.up * top;
+                Vector3 leftBottom1 = points[i + 1] + sides[i + 1] * lefts[i + 1] + Vector3.up * bottom;
+                Vector3 rightBottom1 = points[i + 1] + sides[i + 1] * rights[i + 1] + Vector3.up * bottom;
                 Vector3 side = (sides[i] + sides[i + 1]).normalized;
                 AddQuad(vertices, normals, triangles, leftTop0, rightTop0, rightTop1, leftTop1, Vector3.up);
                 AddQuad(vertices, normals, triangles, leftBottom0, rightBottom0, rightBottom1, leftBottom1, Vector3.down);
@@ -90,8 +106,8 @@ namespace MotorAndSpeed.EditorTools
             int last = points.Count - 1;
             Vector3 startNormal = -Vector3.Cross(sides[0], Vector3.up);
             Vector3 endNormal = Vector3.Cross(sides[last], Vector3.up);
-            AddQuad(vertices, normals, triangles, points[0] + sides[0] * left + Vector3.up * bottom, points[0] + sides[0] * right + Vector3.up * bottom, points[0] + sides[0] * right + Vector3.up * top, points[0] + sides[0] * left + Vector3.up * top, startNormal);
-            AddQuad(vertices, normals, triangles, points[last] + sides[last] * left + Vector3.up * bottom, points[last] + sides[last] * right + Vector3.up * bottom, points[last] + sides[last] * right + Vector3.up * top, points[last] + sides[last] * left + Vector3.up * top, endNormal);
+            AddQuad(vertices, normals, triangles, points[0] + sides[0] * lefts[0] + Vector3.up * bottom, points[0] + sides[0] * rights[0] + Vector3.up * bottom, points[0] + sides[0] * rights[0] + Vector3.up * top, points[0] + sides[0] * lefts[0] + Vector3.up * top, startNormal);
+            AddQuad(vertices, normals, triangles, points[last] + sides[last] * lefts[last] + Vector3.up * bottom, points[last] + sides[last] * rights[last] + Vector3.up * bottom, points[last] + sides[last] * rights[last] + Vector3.up * top, points[last] + sides[last] * lefts[last] + Vector3.up * top, endNormal);
 
             Vector2[] uv = new Vector2[vertices.Count];
 

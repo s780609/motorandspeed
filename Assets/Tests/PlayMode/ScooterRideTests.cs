@@ -68,6 +68,38 @@ namespace MotorAndSpeed.Tests
         }
 
         [UnityTest]
+        public IEnumerator GrazingIntoCurbAtSpeed_DoesNotBounceHigh([Values(6f, 12f, 20f)] float angle)
+        {
+            yield return LoadPrototype();
+
+            // 斜斜地擦上 15 公分高的路緣石（人行道）：路緣石的邊從右邊斜切進車子的行進路線
+            Vector3 forward = _scooter.transform.forward;
+            Vector3 right = _scooter.transform.right;
+            Quaternion curbRotation = Quaternion.AngleAxis(-angle, Vector3.up) * _scooter.transform.rotation;
+            Vector3 curbRight = curbRotation * Vector3.right;
+            GameObject curb = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            curb.transform.rotation = curbRotation;
+            curb.transform.localScale = new Vector3(6f, 0.15f, 80f);
+            // 路緣石左邊緣在前方 45 公尺處剛好通過行進路線
+            curb.transform.position = _start + forward * 45f + curbRight * 3f + Vector3.up * 0.075f;
+            Rigidbody body = _scooter.GetComponent<Rigidbody>();
+
+            Press(_keyboard.wKey);
+            float highest = _scooter.transform.position.y;
+            float fastestUp = 0f;
+            float elapsed = 0f;
+            while (elapsed < 5f && Vector3.Dot(_scooter.transform.position - _start, forward) < 75f)
+            {
+                highest = Mathf.Max(highest, _scooter.transform.position.y);
+                fastestUp = Mathf.Max(fastestUp, body.linearVelocity.y);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            Assert.Less(highest - _start.y, 0.45f, $"斜斜擦上路緣石只能小跳一下（角度 {angle}°，最高 {highest - _start.y:F2} 公尺，往上 {fastestUp:F1} m/s）");
+        }
+
+        [UnityTest]
         public IEnumerator AfterBeingHit_StopsSpinning()
         {
             yield return LoadPrototype();

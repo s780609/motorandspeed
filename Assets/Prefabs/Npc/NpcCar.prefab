@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7305949216730172212}
   - component: {fileID: 840414132570304488}
   - component: {fileID: 7669831697189576278}
+  - component: {fileID: 2594071478138544155}
   m_Layer: 0
   m_Name: NpcCar
   m_TagString: Untagged
@@ -110,6 +111,29 @@ MonoBehaviour:
     - {fileID: 2100000, guid: 1b0a161bfb821e8408e9b5c34bdd26e8, type: 2}
     - {fileID: 2100000, guid: 35867d01fecc7c547af27b3940164b43, type: 2}
     - {fileID: 2100000, guid: 819519acf5d7115448b5f5c098bf2941, type: 2}
+--- !u!114 &2594071478138544155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7643113606303176637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3de76ff4727ab7541af3554add78df7c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MotorAndSpeed::MotorAndSpeed.Audio.VehicleEngineAudio
+  _clip: {fileID: 8300000, guid: 3b5f35e5a904f8540a91cc2aa21a5571, type: 3}
+  _profile:
+    IdlePitch: 0.75
+    MaxPitch: 1.5
+    ThrottlePitch: 0.15
+    IdleVolume: 0.2
+    MaxVolume: 0.55
+    TopSpeed: 16
+  _minDistance: 4
+  _maxDistance: 70
+  _fullThrottleAcceleration: 2.5
 --- !u!1001 &5178832349451786972
 PrefabInstance:
   m_ObjectHideFlags: 0

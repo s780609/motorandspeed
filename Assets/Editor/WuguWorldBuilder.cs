@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MotorAndSpeed.Audio;
 using MotorAndSpeed.Cameras;
 using MotorAndSpeed.Game;
 using MotorAndSpeed.Scooter;
@@ -17,7 +18,7 @@ namespace MotorAndSpeed.EditorTools
     /// <summary>
     /// 依照 OpenStreetMap 路網產生五股世界（約 2.2 × 3 公里）。
     /// 建築分三種細節：成泰路完整、其他主要道路中等、巷弄簡化；洲子洋重劃區蓋退縮高樓；成蘆橋蓋前半段高架。
-    /// 用佔地格子避免建築互相重疊或壓到道路。
+    /// 用佔地格子避免建築互相重疊或壓到道路；公園綠地與分隔島也先佔位，不會蓋到房子。
     /// 選單：MotorAndSpeed / 重建五股世界
     /// </summary>
     internal static class WuguWorldBuilder
@@ -42,6 +43,11 @@ namespace MotorAndSpeed.EditorTools
         private const float PARAPET_HEIGHT = 1.1f;
         private const float PILLAR_SPACING = 32f;
         private const float PILLAR_SIZE = 1.8f;
+        private const float PARK_Y = 0.012f;
+        private const float PARK_TREE_SPACING = 14f;
+        private const int PARK_TREE_LIMIT = 300;
+        private const float MEDIAN_HEIGHT = 0.18f;
+        private const float MEDIAN_TREE_WIDTH = 4f;
 
         private static readonly HashSet<string> HeroRoads = new HashSet<string> { "成泰路二段", "成泰路三段" };
         private static readonly string[] FacadeTints = { "#EFE4CF", "#E3D6C3", "#C99A8E", "#F2F0EA", "#CBD6DC", "#E6CCB5", "#C4CCC6" };
@@ -74,6 +80,8 @@ namespace MotorAndSpeed.EditorTools
         private static Transform _world;
         private static Transform _markings;
         private static int _buildingCount;
+        private static List<List<Vector2>> _parkOutlines;
+        private static List<Rect> _parkBounds;
 
         /// <summary>
         /// 重建五股世界場景並加入建置清單。
@@ -114,11 +122,17 @@ namespace MotorAndSpeed.EditorTools
             List<Vector3> pillars = PlanBridgePillars();
             MarkBridges();
 
+            // 公園的樹也要在標記公園之前規劃（避開穿過公園的道路）
+            List<Vector3> parkTrees = PlanParkTrees();
+            MarkParksAndMedians();
+
             BuildGround(min, max);
             BuildRoads();
             BuildMarkings();
             BuildSignals();
             BuildBridges(pillars);
+            BuildParks(parkTrees);
+            BuildMedians();
 
             // 依優先順序蓋房子：成泰路、其他主要道路、巷弄，先蓋的先佔位
             BuildFrontages(Level.Hero);
@@ -136,6 +150,7 @@ namespace MotorAndSpeed.EditorTools
             PlacePlayerAndCamera(scooterPrefab, worldAsset);
             BuildTraffic(worldAsset);
             BuildGameModes(worldAsset);
+            PrototypeSceneBuilder.AddGameSounds();
             ApplyAtmosphere();
 
             MeshTools.SaveBundles(MESH_FOLDER, _meshes);
@@ -347,6 +362,181 @@ namespace MotorAndSpeed.EditorTools
             MeshTools.Combine(root, mesh => Keep("Bridges", mesh));
         }
 
+        private static List<Vector2> Outline(ParkData park)
+        {
+            return park.points.ConvertAll(p => new Vector2(p.x, p.z));
+        }
+
+        // 運動場、球場不種樹
+        private static bool HasTrees(ParkData park)
+        {
+            return park.kind != "pitch" && park.kind != "track";
+        }
+
+        private static List<Vector3> PlanParkTrees()
+        {
+            List<Vector3> trees = new List<Vector3>();
+            foreach (ParkData park in _data.parks)
+            {
+                if (!HasTrees(park))
+                    continue;
+
+                List<Vector2> outline = Outline(park);
+                Vector2 min = outline[0];
+                Vector2 max = outline[0];
+                foreach (Vector2 point in outline)
+                {
+                    min = Vector2.Min(min, point);
+                    max = Vector2.Max(max, point);
+                }
+
+                // 很大的公園（例如疏洪道）樹種疏一點
+                float spacing = Mathf.Max(PARK_TREE_SPACING, Mathf.Sqrt((max.x - min.x) * (max.y - min.y) / PARK_TREE_LIMIT));
+                for (float x = min.x + spacing / 2f; x < max.x; x += spacing)
+                {
+                    for (float z = min.y + spacing / 2f; z < max.y; z += spacing)
+                    {
+                        Vector2 point = new Vector2(x + (float)(_random.NextDouble() - 0.5) * spacing * 0.6f, z + (float)(_random.NextDouble() - 0.5) * spacing * 0.6f);
+                        if (Polygon.Contains(outline, point) && _grid.IsFree(point, Vector2.right, 2.5f, 2.5f))
+                            trees.Add(new Vector3(point.x, PARK_Y, point.y));
+                    }
+                }
+            }
+
+            return trees;
+        }
+
+        private static bool InPark(Vector2 point)
+        {
+            for (int i = 0; i < _parkOutlines.Count; i++)
+            {
+                if (_parkBounds[i].Contains(point) && Polygon.Contains(_parkOutlines[i], point))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static void MarkParksAndMedians()
+        {
+            _parkOutlines = new List<List<Vector2>>();
+            _parkBounds = new List<Rect>();
+            foreach (ParkData park in _data.parks)
+            {
+                List<Vector2> outline = Outline(park);
+                _grid.MarkPolygon(outline);
+                Vector2 min = outline[0];
+                Vector2 max = outline[0];
+                foreach (Vector2 point in outline)
+                {
+                    min = Vector2.Min(min, point);
+                    max = Vector2.Max(max, point);
+                }
+
+                _parkOutlines.Add(outline);
+                _parkBounds.Add(Rect.MinMaxRect(min.x, min.y, max.x, max.y));
+            }
+
+            foreach (MedianData median in _data.medians)
+            {
+                for (int i = 0; i < median.points.Count - 1; i++)
+                {
+                    Vector2 a = Flat(median.points[i]);
+                    Vector2 b = Flat(median.points[i + 1]);
+                    float length = Vector2.Distance(a, b);
+                    if (length < 0.01f)
+                        continue;
+
+                    _grid.Mark((a + b) / 2f, b - a, length / 2f + 0.6f, Mathf.Max(median.widths[i], median.widths[i + 1]) / 2f);
+                }
+            }
+        }
+
+        private static void BuildParks(List<Vector3> trees)
+        {
+            foreach (ParkData park in _data.parks)
+            {
+                // 綠地平鋪在地面上、路面之下（穿過公園的路會蓋在上面）
+                List<Vector2> outline = Outline(park);
+                List<int> triangles = Polygon.Triangulate(outline);
+                Vector3[] vertices = outline.ConvertAll(p => new Vector3(p.x, PARK_Y, p.y)).ToArray();
+                Vector3[] normals = new Vector3[vertices.Length];
+                Vector2 center = Vector2.zero;
+                for (int i = 0; i < vertices.Length; i++)
+                {
+                    normals[i] = Vector3.up;
+                    center += outline[i] / vertices.Length;
+                }
+
+                // 三角化統一是逆時針（從上往下看），Unity 正面要順時針，所以每組反過來
+                for (int i = 0; i < triangles.Count; i += 3)
+                {
+                    (triangles[i + 1], triangles[i + 2]) = (triangles[i + 2], triangles[i + 1]);
+                }
+
+                Mesh mesh = MeshTools.CreateMesh("Park", vertices, normals, new Vector2[vertices.Length], triangles.ToArray());
+                Material material = HasTrees(park) ? _materials.ParkGrass : _materials.PitchGrass;
+                MeshObject("Park", Chunk(new Vector3(center.x, 0f, center.y)), mesh, material, false);
+            }
+
+            foreach (Vector3 position in trees)
+            {
+                Transform parent = Chunk(position);
+                Transform tree = PrototypeSceneBuilder.AddModel("tree", parent, position);
+                tree.localRotation = Quaternion.Euler(0f, (float)_random.NextDouble() * 360f, 0f);
+                float scale = 0.9f + (float)_random.NextDouble() * 0.5f;
+                tree.localScale = Vector3.one * scale;
+                CapsuleCollider trunk = tree.gameObject.AddComponent<CapsuleCollider>();
+                trunk.center = new Vector3(0f, 1.2f, 0f);
+                trunk.radius = 0.2f;
+                trunk.height = 2.4f;
+            }
+        }
+
+        private static void BuildMedians()
+        {
+            TaiwanStreetBuilder.Palette street = TaiwanStreetBuilder.Materials;
+            foreach (MedianData median in _data.medians)
+            {
+                List<Vector3> line = median.points.ConvertAll(p => new Vector3(p.x, ROAD_Y, p.z));
+                int count = line.Count;
+                float[] lefts = new float[count];
+                float[] rights = new float[count];
+                float[] innerLefts = new float[count];
+                float[] innerRights = new float[count];
+                for (int i = 0; i < count; i++)
+                {
+                    float half = median.widths[i] / 2f;
+                    lefts[i] = -half;
+                    rights[i] = half;
+                    innerLefts[i] = -Mathf.Max(0.05f, half - 0.3f);
+                    innerRights[i] = Mathf.Max(0.05f, half - 0.3f);
+                }
+
+                // 路緣石圍起來的分隔島，中間種草；比路面高，撞得到
+                Transform chunk = Chunk(line[count / 2]);
+                MeshObject("Median", chunk, MeshTools.ProfileStrip(line, lefts, rights, -0.05f, MEDIAN_HEIGHT), _materials.Curb, true);
+                MeshObject("MedianGrass", chunk, MeshTools.ProfileStrip(line, innerLefts, innerRights, MEDIAN_HEIGHT, MEDIAN_HEIGHT + 0.02f), _materials.ParkGrass, false);
+
+                // 夠寬的分隔島種行道樹
+                RoutePath path = new RoutePath(line);
+                for (float s = 6f; s < path.Length - 6f; s += TREE_SPACING * 1.5f)
+                {
+                    int index = Mathf.Clamp(Mathf.RoundToInt(s / path.Length * (count - 1)), 0, count - 1);
+                    if (median.widths[index] < MEDIAN_TREE_WIDTH)
+                        continue;
+
+                    Vector3 position = path.GetPoint(s) + Vector3.up * MEDIAN_HEIGHT;
+                    Transform tree = PrototypeSceneBuilder.AddModel("tree", Chunk(position), position);
+                    tree.localRotation = Quaternion.Euler(0f, (float)_random.NextDouble() * 360f, 0f);
+                    CapsuleCollider trunk = tree.gameObject.AddComponent<CapsuleCollider>();
+                    trunk.center = new Vector3(0f, 1.2f, 0f);
+                    trunk.radius = 0.2f;
+                    trunk.height = 2.4f;
+                }
+            }
+        }
+
         private static void BuildMarkings()
         {
             TaiwanStreetBuilder.Palette street = TaiwanStreetBuilder.Materials;
@@ -537,6 +727,7 @@ namespace MotorAndSpeed.EditorTools
             Transform signals = new GameObject("TrafficSignals").transform;
             signals.SetParent(_world, false);
             float cycleLength = new TrafficSignalCycle(22f, 12f, 3f, 1.5f).CycleLength;
+            SignalPlacement placement = new SignalPlacement(_data);
             foreach (JunctionData junction in _data.junctions)
             {
                 if (!junction.signal)
@@ -564,11 +755,11 @@ namespace MotorAndSpeed.EditorTools
                 List<SignalHead> crossHeads = new List<SignalHead>();
                 for (int i = 0; i < count; i++)
                 {
-                    // 燈頭立在路口對面、開進來的車輛右前方
+                    // 燈桿盡量立在路口對面、開進來的車輛右前方，但不能插在任何路面上
                     EdgeData edge = _data.edges[junction.edges[i]];
                     Vector3 travel = -new Vector3(outward[i].x, 0f, outward[i].y);
-                    Vector3 right = new Vector3(travel.z, 0f, -travel.x);
-                    Vector3 poleBase = travel * (radius + 1f) + right * (edge.width / 2f + 0.5f);
+                    Vector2 pole = placement.PolePosition(junction, new Vector2(travel.x, travel.z), edge.width / 2f);
+                    Vector3 poleBase = new Vector3(pole.x - center.x, 0f, pole.y - center.z);
                     TaiwanStreetBuilder.Cylinder("SignalPole", root, poleBase + Vector3.up * 2.2f, 0.2f, 4.4f, _materials.SignalPole, true);
                     SignalHead head = BuildHead(root, poleBase + Vector3.up * 4.1f, travel);
                     (phases[i] == 0 ? mainHeads : crossHeads).Add(head);
@@ -641,6 +832,10 @@ namespace MotorAndSpeed.EditorTools
 
                 for (int side = -1; side <= 1; side += 2)
                 {
+                    // 雙向分隔道路面向分隔島的那一側沒有店面
+                    if (side == edge.median)
+                        continue;
+
                     BuildEdgeFrontage(edge, side, level);
                 }
             }
@@ -696,6 +891,11 @@ namespace MotorAndSpeed.EditorTools
                 Vector3 right = path.GetRight(center);
                 Vector3 point = path.GetPoint(center);
                 Vector2 footprint = Flat(point + right * (side * (facade + depth / 2f)));
+
+                // 房子背後馬上就是公園：這條窄地其實是公園的邊緣（OSM 範圍沒畫滿），不蓋
+                if (InPark(Flat(point + right * (side * (facade + depth + 6f)))))
+                    continue;
+
                 if (!_grid.IsFree(footprint, forward, width / 2f - 0.05f, depth / 2f))
                 {
                     // 巷弄空間不夠時試試看淺一點的房子
@@ -1013,6 +1213,7 @@ namespace MotorAndSpeed.EditorTools
                 SerializedObject racerSettings = new SerializedObject(racer);
                 racerSettings.FindProperty("_maxSpeed").floatValue = racers[i].MaxSpeed;
                 racerSettings.ApplyModifiedPropertiesWithoutUndo();
+                AddEngineAudio(root, "engine_scooter", 0.6f, 1.7f, 26f, 0.35f, 0.85f, 4f, 90f, 4.5f);
                 GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, $"Assets/Prefabs/Racers/Racer{i}.prefab");
                 Object.DestroyImmediate(root);
                 prefabs.GetArrayElementAtIndex(i).objectReferenceValue = prefab.GetComponent<RacerAI>();
@@ -1080,10 +1281,48 @@ namespace MotorAndSpeed.EditorTools
             }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            // 引擎聲：機車尖、汽車平順、大車低沉而且傳得遠；8+9 改裝排氣管特別吵
+            switch (name)
+            {
+                case "NpcScooter":
+                    AddEngineAudio(root, "engine_scooter", 0.7f, 1.6f, 16f, 0.25f, 0.6f, 3f, 60f, acceleration);
+                    break;
+                case "NpcScooterBajiu":
+                    AddEngineAudio(root, "engine_scooter_tuned", 0.75f, 1.9f, 18f, 0.45f, 1f, 5f, 100f, acceleration);
+                    break;
+                case "NpcScooterBajiuJunk":
+                    AddEngineAudio(root, "engine_scooter_tuned", 0.6f, 1.45f, 17f, 0.4f, 0.9f, 4f, 90f, acceleration);
+                    break;
+                case "NpcCar":
+                    AddEngineAudio(root, "engine_car", 0.75f, 1.5f, 16f, 0.2f, 0.55f, 4f, 70f, acceleration);
+                    break;
+                case "NpcTruck":
+                    AddEngineAudio(root, "engine_truck", 0.75f, 1.35f, 12f, 0.45f, 0.95f, 7f, 120f, acceleration);
+                    break;
+                default:
+                    AddEngineAudio(root, "engine_bus", 0.8f, 1.3f, 11f, 0.45f, 0.95f, 7f, 120f, acceleration);
+                    break;
+            }
+
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, $"{NPC_FOLDER}/{name}.prefab");
             Object.DestroyImmediate(root);
 
             return prefab.GetComponent<WorldVehicle>();
+        }
+
+        private static void AddEngineAudio(GameObject root, string clipName, float idlePitch, float maxPitch, float topSpeed, float idleVolume, float maxVolume, float minDistance, float maxDistance, float fullThrottleAcceleration)
+        {
+            EngineSoundProfile profile = new EngineSoundProfile
+            {
+                IdlePitch = idlePitch,
+                MaxPitch = maxPitch,
+                ThrottlePitch = 0.15f,
+                IdleVolume = idleVolume,
+                MaxVolume = maxVolume,
+                TopSpeed = topSpeed,
+            };
+            root.AddComponent<VehicleEngineAudio>().Configure(PrototypeSceneBuilder.LoadClip(clipName), profile, minDistance, maxDistance, fullThrottleAcceleration);
         }
 
         private static void ApplyAtmosphere()
@@ -1209,6 +1448,8 @@ namespace MotorAndSpeed.EditorTools
             public readonly Material Yellow = PrototypeSceneBuilder.GetMaterial("CenterLine", "#F2C230");
             public readonly Material Curb = PrototypeSceneBuilder.GetMaterial("CurbStone", "#B9B6AE");
             public readonly Material Concrete = PrototypeSceneBuilder.GetMaterial("BridgeConcrete", "#A9A9A3");
+            public readonly Material ParkGrass = PrototypeSceneBuilder.GetMaterial("ParkGrass", "#7FA86A");
+            public readonly Material PitchGrass = PrototypeSceneBuilder.GetMaterial("PitchGrass", "#5E9A5E");
             public readonly Material SignalPole = PrototypeSceneBuilder.GetMaterial("SignalPole", "#8C9196");
             public readonly Material SignalHousing = PrototypeSceneBuilder.GetMaterial("SignalHousing", "#1E1F21");
             public readonly Material LampOff = PrototypeSceneBuilder.GetMaterial("LampOff", "#2A2C2E");

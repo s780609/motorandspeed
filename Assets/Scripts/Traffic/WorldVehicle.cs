@@ -40,9 +40,16 @@ namespace MotorAndSpeed.Traffic
         private int _nextEdge;
         private bool _nextForward;
         private float _nextDistance;
+        // 8+9 混亂騎法：切西瓜、飆車、闖紅燈
+        private bool _reckless;
+        private float _recklessPhase;
+        private float _recklessClock;
 
         /// <summary>目前速度（m/s）。</summary>
         public float Speed => _speed;
+
+        /// <summary>是否用 8+9 的混亂騎法（切西瓜、飆車、闖紅燈）。</summary>
+        public bool IsReckless => _reckless;
 
         /// <summary>車長（公尺）。</summary>
         public float Length => _length;
@@ -71,13 +78,16 @@ namespace MotorAndSpeed.Traffic
         public float DistanceToJunction => _forward ? _traffic.Network.GetEdgePath(_edge).Length - _distance : _distance;
 
         /// <summary>
-        /// 生成時由 WorldTraffic 呼叫：設定隨機速度與顏色。
+        /// 生成時由 WorldTraffic 呼叫：設定隨機速度與顏色；reckless 為 8+9 的混亂騎法。
         /// </summary>
-        public void Initialize(WorldTraffic traffic, System.Random random)
+        public void Initialize(WorldTraffic traffic, System.Random random, bool reckless = false)
         {
             _traffic = traffic;
             _random = random;
             _cruise = _cruiseSpeed + (float)(random.NextDouble() * 2.0 - 1.0) * _speedVariance;
+            _reckless = reckless;
+            if (reckless)
+                _recklessPhase = (float)(random.NextDouble() * 2.0 * Mathf.PI);
             _body = GetComponent<Rigidbody>();
             _body.isKinematic = true;
             _body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -104,11 +114,13 @@ namespace MotorAndSpeed.Traffic
 
             float deltaTime = Time.fixedDeltaTime;
             float obstacle = SenseObstacle();
+            // 8+9 飆車：不定時暴衝
+            float cruise = _reckless ? _cruise * RecklessRiding.Surge(_recklessClock, _recklessPhase) : _cruise;
 
             if (_turning)
             {
                 // 已經進入路口，不再理會號誌，直接通過
-                Accelerate(TrafficRules.ComputeTargetSpeed(_cruise * 0.7f, _speed, _deceleration, float.PositiveInfinity, SignalState.Green, obstacle), deltaTime);
+                Accelerate(TrafficRules.ComputeTargetSpeed(cruise * 0.7f, _speed, _deceleration, float.PositiveInfinity, SignalState.Green, obstacle), deltaTime);
                 _curveProgress += _speed * deltaTime;
                 if (_curveProgress >= _curveLength)
                 {
@@ -123,16 +135,18 @@ namespace MotorAndSpeed.Traffic
                 return;
             }
 
+            // 切西瓜的時鐘只在路段上走，過路口時停住，曲線終點才會接得上
+            _recklessClock += deltaTime;
             EdgeData edge = _traffic.Network.Data.edges[_edge];
             RoutePath path = _traffic.Network.GetEdgePath(_edge);
             int ahead = _forward ? edge.end : edge.start;
             float radius = _traffic.JunctionRadius(ahead);
             float toCenter = _forward ? path.Length - _distance : _distance;
 
-            // 前方路口有紅綠燈：停在停止線前
+            // 前方路口有紅綠燈：停在停止線前（8+9 直接闖紅燈）
             float stopLine = float.PositiveInfinity;
             SignalState signal = SignalState.Green;
-            if (_traffic.TryGetSignal(ahead, _edge, out SignalState state))
+            if (!_reckless && _traffic.TryGetSignal(ahead, _edge, out SignalState state))
             {
                 float gap = toCenter - radius - STOP_LINE_GAP;
                 if (gap > -0.5f)
@@ -142,7 +156,7 @@ namespace MotorAndSpeed.Traffic
                 }
             }
 
-            Accelerate(TrafficRules.ComputeTargetSpeed(_cruise, _speed, _deceleration, stopLine, signal, obstacle), deltaTime);
+            Accelerate(TrafficRules.ComputeTargetSpeed(cruise, _speed, _deceleration, stopLine, signal, obstacle), deltaTime);
             _distance += (_forward ? 1f : -1f) * _speed * deltaTime;
             if (toCenter - _speed * deltaTime <= radius)
                 BeginTurn(ahead);
@@ -196,9 +210,19 @@ namespace MotorAndSpeed.Traffic
         private Vector3 LanePoint(int edge, bool forward, float distance)
         {
             RoutePath path = _traffic.Network.GetEdgePath(edge);
-            float offset = WorldTraffic.LaneOffset(_traffic.Network.Data.edges[edge], IsScooter);
+            float offset = LaneOffsetAt(edge, _recklessClock);
 
             return path.GetPoint(distance) + path.GetRight(distance) * (forward ? offset : -offset);
+        }
+
+        private float LaneOffsetAt(int edge, float clock)
+        {
+            EdgeData data = _traffic.Network.Data.edges[edge];
+            float offset = WorldTraffic.LaneOffset(data, IsScooter);
+            if (!_reckless)
+                return offset;
+
+            return RecklessRiding.WeaveOffset(data, offset, RecklessRiding.Weave(clock, _recklessPhase));
         }
 
         private void Place(bool teleport)
@@ -212,7 +236,15 @@ namespace MotorAndSpeed.Traffic
             }
             else
             {
-                direction = _traffic.Network.GetEdgePath(_edge).GetTangent(_distance) * (_forward ? 1f : -1f);
+                RoutePath path = _traffic.Network.GetEdgePath(_edge);
+                float sign = _forward ? 1f : -1f;
+                direction = path.GetTangent(_distance) * sign;
+                if (_reckless)
+                {
+                    // 切西瓜時車頭跟著往切的方向擺
+                    float lateralSpeed = (LaneOffsetAt(_edge, _recklessClock + 0.1f) - LaneOffsetAt(_edge, _recklessClock)) / 0.1f;
+                    direction = direction * Mathf.Max(_speed, 1f) + path.GetRight(_distance) * (sign * lateralSpeed);
+                }
             }
 
             direction.y = 0f;

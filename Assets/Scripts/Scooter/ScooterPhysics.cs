@@ -91,6 +91,14 @@ namespace MotorAndSpeed.Scooter
             return Mathf.Clamp01((impactSpeed - settings.ImpactThreshold) / settings.ImpactShakeRange);
         }
 
+        /// <summary>
+        /// 限制往上的速度：只保留斜坡造成的上升速度（slopeRiseSpeed），撞擊推上去的部分最多 MaxBumpRiseSpeed。
+        /// </summary>
+        public static float LimitRiseSpeed(float verticalSpeed, float slopeRiseSpeed, ScooterSettings settings)
+        {
+            return Mathf.Min(verticalSpeed, Mathf.Max(settings.MaxBumpRiseSpeed, slopeRiseSpeed));
+        }
+
         public static float ComputeLeanAngle(float steer, float speed, ScooterSettings settings)
         {
             float speedFactor = Mathf.Clamp01(Mathf.Abs(speed) / settings.LeanFullSpeed);

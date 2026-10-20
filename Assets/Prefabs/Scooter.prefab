@@ -29,11 +29,11 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 3019391071381095710}
+  - {fileID: 4530083087582665643}
   - {fileID: 5581421087635008035}
   - {fileID: 7005519381653138852}
-  - {fileID: 4530083087582665643}
-  - {fileID: 8343818098239063692}
+  - {fileID: 644139441996001248}
+  - {fileID: 8377129782155845984}
   m_Father: {fileID: 2862029671887214006}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5158399574173679915
@@ -49,6 +49,7 @@ GameObject:
   - component: {fileID: 6989177867245846321}
   - component: {fileID: 5343962016894581062}
   - component: {fileID: 1884056992594996184}
+  - component: {fileID: 8316060927342555596}
   m_Layer: 0
   m_Name: Scooter
   m_TagString: Untagged
@@ -165,76 +166,43 @@ MonoBehaviour:
     HighSpeedTurnFactor: 0.55
     MaxLean: 35
     LeanFullSpeed: 10
+    ImpactThreshold: 1.5
+    ImpactYawPerSpeed: 1.8
+    MaxImpactYaw: 20
+    ImpactShakeRange: 10
+    MaxBumpRiseSpeed: 1.2
   _visual: {fileID: 686228289996549117}
   _handlebar: {fileID: 7005519381653138852}
-  _frontWheel: {fileID: 4530083087582665643}
-  _rearWheel: {fileID: 8343818098239063692}
+  _frontWheel: {fileID: 644139441996001248}
+  _rearWheel: {fileID: 8377129782155845984}
   _wheelRadius: 0.24
   _maxHandlebarAngle: 15
   _visualResponsiveness: 8
---- !u!1001 &3345525072157041397
-PrefabInstance:
+--- !u!114 &8316060927342555596
+MonoBehaviour:
   m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 686228289996549117}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-      propertyPath: m_Name
-      value: scooter_body
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
---- !u!4 &3019391071381095710 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
-  m_PrefabInstance: {fileID: 3345525072157041397}
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
---- !u!1001 &4131120188112501824
+  m_GameObject: {fileID: 5158399574173679915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3eb84564e4141da4787d95ffd84284b9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MotorAndSpeed::MotorAndSpeed.Audio.PlayerScooterAudio
+  _engineClip: {fileID: 8300000, guid: 46042b9212e63124fa1ba544bde6ab62, type: 3}
+  _hornClip: {fileID: 8300000, guid: 53ea3d4bfe33f904c88b7b3f629b475f, type: 3}
+  _crashClip: {fileID: 8300000, guid: 2b04324c25a391649883864886932e93, type: 3}
+  _profile:
+    IdlePitch: 0.6
+    MaxPitch: 1.7
+    ThrottlePitch: 0.2
+    IdleVolume: 0.3
+    MaxVolume: 0.9
+    TopSpeed: 28
+  _hornVolume: 0.7
+  _crashVolume: 1
+--- !u!1001 &644139441996001247
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -291,9 +259,71 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4d9ae57ac6ff2c440b4390857a63b75e, type: 3}
---- !u!4 &4530083087582665643 stripped
+--- !u!4 &644139441996001248 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4d9ae57ac6ff2c440b4390857a63b75e, type: 3}
+  m_PrefabInstance: {fileID: 644139441996001247}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &4131120188112501824
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 686228289996549117}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+      propertyPath: m_Name
+      value: scooter_body
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
+--- !u!4 &4530083087582665643 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 08b78b931cd52304db564b55b1f63d9d, type: 3}
   m_PrefabInstance: {fileID: 4131120188112501824}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &5404189351597215176
@@ -477,7 +507,7 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4d9ae57ac6ff2c440b4390857a63b75e, type: 3}
---- !u!4 &8343818098239063692 stripped
+--- !u!4 &8377129782155845984 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4d9ae57ac6ff2c440b4390857a63b75e, type: 3}
   m_PrefabInstance: {fileID: 8343818098239063691}

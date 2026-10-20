@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MotorAndSpeed.Audio;
 using MotorAndSpeed.Cameras;
 using MotorAndSpeed.Scooter;
 using MotorAndSpeed.UI;
@@ -18,6 +19,7 @@ namespace MotorAndSpeed.EditorTools
     public static class PrototypeSceneBuilder
     {
         private const string MODELS_FOLDER = "Assets/Models";
+        private const string AUDIO_FOLDER = "Assets/Audio";
         private const string MATERIALS_FOLDER = "Assets/Materials/Prototype";
         private const string PHYSICS_MATERIAL_PATH = "Assets/Physics/Frictionless.asset";
         internal const string PREFAB_PATH = "Assets/Prefabs/Scooter.prefab";
@@ -50,6 +52,7 @@ namespace MotorAndSpeed.EditorTools
             camera.transform.LookAt(scooter.transform.position + Vector3.up * 0.9f);
             SetReference(camera.gameObject.AddComponent<ChaseCamera>(), "_target", controller);
             SetReference(camera.gameObject.AddComponent<SpeedHud>(), "_target", controller);
+            AddGameSounds();
 
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
             AddSceneToBuild(SCENE_PATH);
@@ -96,6 +99,11 @@ namespace MotorAndSpeed.EditorTools
             serialized.FindProperty("_frontWheel").objectReferenceValue = frontWheel;
             serialized.FindProperty("_rearWheel").objectReferenceValue = rearWheel;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            PlayerScooterAudio audio = root.AddComponent<PlayerScooterAudio>();
+            SetReference(audio, "_engineClip", LoadClip("engine_scooter"));
+            SetReference(audio, "_hornClip", LoadClip("horn"));
+            SetReference(audio, "_crashClip", LoadClip("crash"));
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, PREFAB_PATH);
             Object.DestroyImmediate(root);
@@ -195,6 +203,29 @@ namespace MotorAndSpeed.EditorTools
             instance.transform.localPosition = localPosition;
 
             return instance.transform;
+        }
+
+        /// <summary>
+        /// 放入場景的 2D 聲音：街道環境底噪、介面與比賽提示音。
+        /// </summary>
+        internal static void AddGameSounds()
+        {
+            GameSounds sounds = new GameObject("GameSounds").AddComponent<GameSounds>();
+            SetReference(sounds, "_ambience", LoadClip("ambience_street"));
+            SetReference(sounds, "_click", LoadClip("ui_click"));
+            SetReference(sounds, "_countdownTick", LoadClip("countdown_tick"));
+            SetReference(sounds, "_countdownGo", LoadClip("countdown_go"));
+            SetReference(sounds, "_checkpoint", LoadClip("checkpoint"));
+            SetReference(sounds, "_finish", LoadClip("finish"));
+        }
+
+        internal static AudioClip LoadClip(string clipName)
+        {
+            AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{AUDIO_FOLDER}/{clipName}.wav");
+            if (clip == null)
+                throw new InvalidOperationException($"找不到音效 {clipName}.wav，請先執行 python tools/generate_audio.py");
+
+            return clip;
         }
 
         internal static Material GetMaterial(string materialName, string hexColor)

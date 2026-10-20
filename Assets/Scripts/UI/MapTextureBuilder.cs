@@ -4,7 +4,7 @@ using UnityEngine;
 namespace MotorAndSpeed.UI
 {
     /// <summary>
-    /// 在像素陣列上畫粗線（道路），用來產生小地圖貼圖。
+    /// 在像素陣列上畫粗線（道路）與填滿多邊形（公園），用來產生小地圖貼圖。
     /// </summary>
     public static class MapTextureBuilder
     {
@@ -25,6 +25,29 @@ namespace MotorAndSpeed.UI
                 for (int step = 1; step <= steps; step++)
                 {
                     Stamp(pixels, size, Vector2.Lerp(points[i], points[i + 1], step / (float)steps), radius, color);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 填滿多邊形（像素座標）。
+        /// </summary>
+        public static void FillPolygon(Color32[] pixels, int size, IReadOnlyList<Vector2> polygon, Color32 color)
+        {
+            Vector2 min = polygon[0];
+            Vector2 max = polygon[0];
+            foreach (Vector2 point in polygon)
+            {
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+
+            for (int y = Mathf.Max(0, Mathf.FloorToInt(min.y)); y <= Mathf.Min(size - 1, Mathf.CeilToInt(max.y)); y++)
+            {
+                for (int x = Mathf.Max(0, Mathf.FloorToInt(min.x)); x <= Mathf.Min(size - 1, Mathf.CeilToInt(max.x)); x++)
+                {
+                    if (World.Polygon.Contains(polygon, new Vector2(x, y)))
+                        pixels[y * size + x] = color;
                 }
             }
         }

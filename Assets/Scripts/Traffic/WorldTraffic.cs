@@ -138,7 +138,7 @@ namespace MotorAndSpeed.Traffic
                     continue;
 
                 WorldVehicle vehicle = Instantiate(prefab, transform);
-                vehicle.Initialize(this, _random);
+                vehicle.Initialize(this, _random, System.Array.IndexOf(_bajiuScooterPrefabs, prefab) >= 0);
                 _vehicles.Add(vehicle);
                 Respawn(vehicle);
             }
@@ -146,8 +146,8 @@ namespace MotorAndSpeed.Traffic
 
         private WorldVehicle PickPrefab(double roll)
         {
-            // 機車最多（其中約一成是 8+9，改裝車、破爛車各半），其次是汽車，少量貨車與公車
-            if (roll < 0.45)
+            // 機車最多（一般機車 35%、8+9 15%，8+9 改裝車與破爛車各半），其次是汽車，少量貨車與公車
+            if (roll < 0.35)
                 return _scooterPrefab;
 
             if (roll < 0.5)
@@ -155,7 +155,7 @@ namespace MotorAndSpeed.Traffic
                 if (_bajiuScooterPrefabs.Length == 0)
                     return _scooterPrefab;
 
-                int index = Mathf.Min((int)((roll - 0.45) / 0.05 * _bajiuScooterPrefabs.Length), _bajiuScooterPrefabs.Length - 1);
+                int index = Mathf.Min((int)((roll - 0.35) / 0.15 * _bajiuScooterPrefabs.Length), _bajiuScooterPrefabs.Length - 1);
 
                 return _bajiuScooterPrefabs[index];
             }

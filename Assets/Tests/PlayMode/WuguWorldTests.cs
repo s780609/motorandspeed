@@ -70,13 +70,18 @@ namespace MotorAndSpeed.Tests
             foreach (WorldVehicle vehicle in _traffic.Vehicles)
             {
                 if (!vehicle.name.StartsWith("NpcScooterBajiu"))
+                {
+                    Assert.IsFalse(vehicle.IsReckless, "只有 8+9 會亂騎");
                     continue;
+                }
 
                 bajiu++;
                 Assert.IsTrue(vehicle.IsScooter, "8+9 要走機車車道");
+                Assert.IsTrue(vehicle.IsReckless, "8+9 要切西瓜、飆車、闖紅燈");
             }
 
-            Assert.GreaterOrEqual(bajiu, 1, "路上應該要有 8+9 騎士");
+            // 8+9 約占 15%，120 台車裡至少要有 8 台
+            Assert.GreaterOrEqual(bajiu, 8, "路上的 8+9 太少");
         }
 
         [UnityTest]
@@ -173,6 +178,33 @@ namespace MotorAndSpeed.Tests
             // 斷頭的地方要擋起來，不能直接騎出去
             Vector3 end = path.GetPoint(path.Length - 6f) + Vector3.up * (BridgeProfile.DECK_HEIGHT + 0.6f);
             Assert.IsTrue(Physics.Raycast(end, path.GetTangent(path.Length - 6f), 8f), "橋的盡頭要有護欄");
+        }
+
+        [UnityTest]
+        public IEnumerator Parks_HaveNoBuildings_MediansAreRaised()
+        {
+            yield return LoadWorld();
+            TextAsset asset = Resources.FindObjectsOfTypeAll<TextAsset>().First(t => t.name == "wugu_world");
+            WorldData data = WorldData.FromJson(asset.text);
+
+            // 公園裡不能有房子（房子是高於 4 公尺的方塊碰撞體）
+            ParkData park = data.parks.Find(p => p.name == "防災體健公園");
+            List<Vector2> outline = park.points.ConvertAll(p => new Vector2(p.x, p.z));
+            List<string> buildings = new List<string>();
+            foreach (BoxCollider box in Object.FindObjectsByType<BoxCollider>(FindObjectsSortMode.None))
+            {
+                Vector3 center = box.bounds.center;
+                if (box.bounds.size.y > 4f && Polygon.Contains(outline, new Vector2(center.x, center.z)))
+                    buildings.Add(box.name);
+            }
+
+            Assert.IsEmpty(buildings, "防災體健公園裡有建築：" + string.Join("、", buildings));
+
+            // 分隔島比路面高（路緣石）
+            MedianData median = data.medians.OrderByDescending(m => m.points.Count).First();
+            RoutePoint middle = median.points[median.points.Count / 2];
+            Assert.IsTrue(Physics.Raycast(new Vector3(middle.x, 10f, middle.z), Vector3.down, out RaycastHit hit, 20f));
+            Assert.Greater(hit.point.y, 0.12f, "分隔島要高出路面");
         }
 
         [UnityTest]

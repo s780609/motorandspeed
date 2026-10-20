@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MotorAndSpeed.World
@@ -50,6 +51,31 @@ namespace MotorAndSpeed.World
                 for (int x = Mathf.Max(0, x0); x <= Mathf.Min(_width - 1, x1); x++)
                 {
                     if ((CellCenter(x, y) - center).sqrMagnitude <= radius * radius)
+                        _occupied[y * _width + x] = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 把多邊形範圍標記為已佔用（公園）。
+        /// </summary>
+        public void MarkPolygon(IReadOnlyList<Vector2> polygon)
+        {
+            Vector2 min = polygon[0];
+            Vector2 max = polygon[0];
+            foreach (Vector2 point in polygon)
+            {
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+
+            Vector2 center = (min + max) / 2f;
+            GetCellRange(center, (max.x - min.x) / 2f, (max.y - min.y) / 2f, out int x0, out int y0, out int x1, out int y1);
+            for (int y = Mathf.Max(0, y0); y <= Mathf.Min(_height - 1, y1); y++)
+            {
+                for (int x = Mathf.Max(0, x0); x <= Mathf.Min(_width - 1, x1); x++)
+                {
+                    if (Polygon.Contains(polygon, CellCenter(x, y)))
                         _occupied[y * _width + x] = true;
                 }
             }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MotorAndSpeed.Audio;
 using MotorAndSpeed.Game;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -126,7 +127,11 @@ namespace MotorAndSpeed.UI
             headerRect.anchoredPosition = new Vector2(-MARGIN, -MARGIN);
             headerRect.sizeDelta = new Vector2(WIDTH, ROW_HEIGHT + 4f);
             _header.text = $"模式：{GameModes.DisplayName(_current)}　▼";
-            header.onClick.AddListener(() => _list.gameObject.SetActive(!_list.gameObject.activeSelf));
+            header.onClick.AddListener(() =>
+            {
+                GameSounds.Play(GameSound.Click);
+                _list.gameObject.SetActive(!_list.gameObject.activeSelf);
+            });
 
             _list = new GameObject("Options", typeof(RectTransform)).GetComponent<RectTransform>();
             _list.SetParent(canvasObject.transform, false);
@@ -143,7 +148,11 @@ namespace MotorAndSpeed.UI
                 rect.anchoredPosition = new Vector2(0f, -i * ROW_HEIGHT);
                 rect.sizeDelta = new Vector2(WIDTH, ROW_HEIGHT - 2f);
                 label.text = GameModes.DisplayName(mode);
-                item.onClick.AddListener(() => Select(mode));
+                item.onClick.AddListener(() =>
+                {
+                    GameSounds.Play(GameSound.Click);
+                    Select(mode);
+                });
                 _items.Add(item);
             }
 

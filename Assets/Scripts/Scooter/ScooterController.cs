@@ -51,12 +51,17 @@ namespace MotorAndSpeed.Scooter
         private float _pendingImpactYaw;
         private float _impactTime = -10f;
         private float _impactStrength;
+        // 最近一次著地時，沿著坡面前進造成的上升速度（m/s）
+        private float _slopeRiseSpeed;
 
         /// <summary>被撞時觸發，參數為晃動強度（0~1），鏡頭用來晃動。</summary>
         public event Action<float> Impacted;
 
         /// <summary>目前速度（m/s），負數代表倒車。</summary>
         public float Speed => _speed;
+
+        /// <summary>目前油門 0~1（引擎聲用）。</summary>
+        public float Throttle => _throttle;
 
         /// <summary>是否著地。</summary>
         public bool IsGrounded => _isGrounded;
@@ -77,6 +82,7 @@ namespace MotorAndSpeed.Scooter
         {
             _speed = 0f;
             _pendingImpactYaw = 0f;
+            _slopeRiseSpeed = 0f;
             _body.linearVelocity = Vector3.zero;
             _body.angularVelocity = Vector3.zero;
             _body.position = position;
@@ -107,6 +113,13 @@ namespace MotorAndSpeed.Scooter
 
         private void FixedUpdate()
         {
+            // 斜斜擦上路緣石時，物理引擎會把撞進去的速度轉成往上的速度，整台車彈得很高；
+            // 往上的速度只保留斜坡造成的部分，衝上跳台照樣能飛出去
+            Vector3 velocity = _body.linearVelocity;
+            float limitedRise = ScooterPhysics.LimitRiseSpeed(velocity.y, _slopeRiseSpeed, _settings);
+            if (limitedRise < velocity.y)
+                _body.linearVelocity = new Vector3(velocity.x, limitedRise, velocity.z);
+
             Vector3 probeOrigin = transform.position + Vector3.up * PROBE_HEIGHT;
             _isGrounded = GroundProbe.TryGetGround(probeOrigin, PROBE_HEIGHT + GROUNDED_TOLERANCE, out RaycastHit hit);
             float deltaTime = Time.fixedDeltaTime;
@@ -133,6 +146,7 @@ namespace MotorAndSpeed.Scooter
             // 沿著地面坡度前進，衝上斜坡就會自然飛出去
             _moveDirection = Vector3.ProjectOnPlane(transform.forward, hit.normal).normalized;
             _body.linearVelocity = _moveDirection * _speed;
+            _slopeRiseSpeed = Mathf.Max(0f, _body.linearVelocity.y);
         }
 
         private void OnCollisionEnter(Collision collision)

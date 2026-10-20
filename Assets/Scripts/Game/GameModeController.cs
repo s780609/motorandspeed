@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MotorAndSpeed.Audio;
 using MotorAndSpeed.Scooter;
 using MotorAndSpeed.Traffic;
 using MotorAndSpeed.UI;
@@ -57,6 +58,8 @@ namespace MotorAndSpeed.Game
         private bool _loop;
         private RaceProgress _race;
         private float _countdown;
+        // 倒數時最後一次嗶聲是第幾秒
+        private int _beepedSecond;
         private bool _racing;
         private float _raceClock;
         private float _finishTime = -1f;
@@ -209,6 +212,7 @@ namespace MotorAndSpeed.Game
             _deliveryClock += Time.deltaTime;
             if (_delivery.IsOver)
             {
+                GameSounds.Play(GameSound.Finish);
                 ClearTarget();
 
                 return;
@@ -222,11 +226,13 @@ namespace MotorAndSpeed.Game
                 _delivery.ReachTarget();
                 if (_delivery.IsOver)
                 {
+                    GameSounds.Play(GameSound.Finish);
                     ClearTarget();
 
                     return;
                 }
 
+                GameSounds.Play(GameSound.Checkpoint);
                 if (before == DeliveryStage.Pickup)
                 {
                     _pickupPoint = target;
@@ -392,6 +398,7 @@ namespace MotorAndSpeed.Game
             _miniMap.SetGuide(points);
             _miniMap.SetTarget(loop ? (Vector3?)null : points[points.Count - 1], DeliveryColor);
             _countdown = COUNTDOWN;
+            _beepedSecond = 0;
             _raceClock = 0f;
         }
 
@@ -433,7 +440,17 @@ namespace MotorAndSpeed.Game
             {
                 _countdown -= Time.deltaTime;
                 if (_countdown > 0f)
+                {
+                    // 3、2、1 每秒嗶一聲
+                    int second = Mathf.CeilToInt(_countdown);
+                    if (second != _beepedSecond)
+                    {
+                        _beepedSecond = second;
+                        GameSounds.Play(GameSound.CountdownTick);
+                    }
+
                     return;
+                }
 
                 _racing = true;
                 _player.InputLocked = false;
@@ -442,6 +459,7 @@ namespace MotorAndSpeed.Game
                     racer.Go();
                 }
 
+                GameSounds.Play(GameSound.CountdownGo);
                 ShowBanner("出發！");
             }
 
@@ -455,7 +473,10 @@ namespace MotorAndSpeed.Game
             }
 
             if (_finishTime < 0f && _race.IsFinished(0))
+            {
                 _finishTime = _raceClock;
+                GameSounds.Play(GameSound.Finish);
+            }
         }
 
         private void ShowBanner(string text)
@@ -532,10 +553,16 @@ namespace MotorAndSpeed.Game
             GUI.Box(panel, GUIContent.none);
             GUI.Label(new Rect(panel.x, panel.y + 20f, panel.width, 100f), message, _panelStyle);
             if (GUI.Button(new Rect(panel.x + 30f, panel.y + 150f, 160f, 44f), "再玩一次"))
+            {
+                GameSounds.Play(GameSound.Click);
                 StartMode(_mode);
+            }
 
             if (GUI.Button(new Rect(panel.x + 210f, panel.y + 150f, 160f, 44f), "回自由騎乘"))
+            {
+                GameSounds.Play(GameSound.Click);
                 StartMode(GameMode.FreeRide);
+            }
         }
 
         private void EnsureStyles()

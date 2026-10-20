@@ -1,8 +1,9 @@
 """把 OpenStreetMap 道路轉成五股世界路網（Assets/Data/wugu_world.json）。
 
-內容：路段與路口（含紅綠燈）、高架橋（成蘆橋前半段）、洲子洋重劃區範圍、送貨地點、衝刺賽與繞圈賽路線。
+內容：路段與路口（含紅綠燈）、雙向分隔道路的分隔島、公園綠地、高架橋（成蘆橋前半段）、
+洲子洋重劃區範圍、送貨地點、衝刺賽與繞圈賽路線。
 座標與 wugu_route.json 相同：x = 東、z = 北（公尺），原點為 577巷 起點。
-資料來源：tools/data/wugu_osm.json，© OpenStreetMap contributors（ODbL）。
+資料來源：tools/data/wugu_osm.json、tools/data/wugu_parks.json，© OpenStreetMap contributors（ODbL）。
 執行：python tools/build_world_data.py（需先執行 build_route_data.py）
 """
 import heapq
@@ -16,6 +17,7 @@ import build_route_data as route
 
 ROOT = Path(__file__).resolve().parent.parent
 ROUTE_JSON = ROOT / "Assets" / "Data" / "wugu_route.json"
+PARKS_JSON = ROOT / "tools" / "data" / "wugu_parks.json"
 OUTPUT = ROOT / "Assets" / "Data" / "wugu_world.json"
 
 # 可騎的道路與寬度；高架快速道路（trunk、motorway）不做
@@ -26,6 +28,12 @@ SERVICE_SKIP = {"driveway", "parking_aisle", "drive-through"}
 BRIDGE_NAMES = {"成蘆橋"}
 BRIDGE_FRACTION = 0.5
 BRIDGE_LANES_WIDTH = 9.0
+# 雙向分隔道路：OSM 把兩個方向畫成兩條單行線，中心線距離在這個範圍內、方向相反就當成一對
+PAIR_GAP = (3.0, 30.0)
+MEDIAN_MIN = 2.0
+CARRIAGEWAY_MIN = 5.0
+# 公園綠地太小的不算
+PARK_MIN_AREA = 80.0
 MAIN_TYPES = {"primary", "secondary", "tertiary"}
 MAIN_ROAD_NAMES = {"成泰路二段", "成泰路三段"}
 SAMPLE_SPACING = 4.0
@@ -72,6 +80,149 @@ def chain(edge_ids, edges, start_junction):
         junction = edge["end"] if edge["start"] == junction else edge["start"]
         points.extend(pts if not points else pts[1:])
     return points
+
+
+def nearest_on(points, p):
+    """折線上離 p 最近的點與該處的方向。"""
+    best = (math.inf, None, None)
+    for a, b in zip(points, points[1:]):
+        dx, dz = b[0] - a[0], b[1] - a[1]
+        length2 = dx * dx + dz * dz
+        t = 0.0 if length2 == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / length2))
+        q = (a[0] + dx * t, a[1] + dz * t)
+        d = math.dist(p, q)
+        if d < best[0]:
+            best = (d, q, route.unit(dx, dz))
+    return best
+
+
+def travel_points(edge):
+    """依行車方向排好的點（oneway = -1 的路段要反過來）。"""
+    return edge["points"] if edge["oneway"] >= 0 else edge["points"][::-1]
+
+
+def pair_carriageways(edges, junctions):
+    """找出成對的單行線（雙向分隔道路），把車道縮窄到不重疊，回傳中間的分隔島。"""
+    oneway = [e for e in edges if e["oneway"] != 0]
+    matches = {}
+    for e in oneway:
+        pts = travel_points(e)
+        found = []
+        for i, p in enumerate(pts):
+            a, b = pts[max(0, i - 1)], pts[min(len(pts) - 1, i + 1)]
+            tangent = route.unit(b[0] - a[0], b[1] - a[1])
+            best = None
+            for f in oneway:
+                if f is e:
+                    continue
+                d, q, direction = nearest_on(travel_points(f), p)
+                # 方向要相反（另一個方向的車道）
+                if PAIR_GAP[0] <= d <= PAIR_GAP[1] and tangent[0] * direction[0] + tangent[1] * direction[1] < -0.8:
+                    if best is None or d < best[0]:
+                        best = (d, q, f)
+            found.append((p, tangent, best))
+        matches[e["id"]] = found
+
+    # 有六成以上的點找得到對向車道才算一對；兩邊依中心線距離縮窄，中間留分隔島
+    paired = {}
+    for e in oneway:
+        found = matches[e["id"]]
+        gaps = sorted(m[2][0] for m in found if m[2])
+        if len(gaps) < 0.6 * len(found):
+            continue
+        # 取偏窄的距離（第 20 百分位），中心線距離變窄的地方才不會疊在一起
+        gap = gaps[len(gaps) // 5]
+        e["width"] = round(min(e["width"], max(CARRIAGEWAY_MIN, gap - MEDIAN_MIN)), 1)
+        side_votes = 0.0
+        for p, tangent, best in found:
+            if best:
+                right = (tangent[1], -tangent[0])
+                side_votes += (best[1][0] - p[0]) * right[0] + (best[1][1] - p[1]) * right[1]
+        # 輸出的點是原始順序；oneway = -1 時行車方向相反，左右也要對調
+        side = 1 if side_votes > 0 else -1
+        e["median"] = side if e["oneway"] > 0 else -side
+        paired[e["id"]] = found
+
+    # 路口附近不放分隔島，橫向的車才過得去
+    radius = {}
+    for j in junctions:
+        radius[j["id"]] = max(edges[k]["width"] / 2.0 + 1.0 for k in j["edges"])
+    crossings = [((j["x"], j["z"]), radius[j["id"]] + 3.0) for j in junctions if len(j["edges"]) >= 3]
+
+    medians = []
+    for e_id, found in paired.items():
+        e = edges[e_id]
+        run_points, run_widths = [], []
+        for p, tangent, best in found + [(None, None, None)]:
+            ok = False
+            if best and best[2]["id"] in paired and e_id < best[2]["id"]:
+                d, q, f = best
+                width = d - e["width"] / 2.0 - f["width"] / 2.0
+                middle = ((p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0)
+                if width >= 1.0 and all(math.dist(middle, c) > r for c, r in crossings):
+                    run_points.append(middle)
+                    run_widths.append(width)
+                    ok = True
+            if not ok:
+                if len(run_points) >= 3 and route.polyline_length(run_points) >= 8.0:
+                    medians.append({"points": run_points, "widths": run_widths})
+                run_points, run_widths = [], []
+    return medians
+
+
+def polygon_area(points):
+    return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(points, points[1:] + points[:1]))) / 2.0
+
+
+def clip_polygon(points, min_x, min_z, max_x, max_z):
+    """Sutherland–Hodgman：把多邊形裁到矩形範圍內。"""
+    def clip(poly, inside, cross):
+        out = []
+        for i, cur in enumerate(poly):
+            prev = poly[i - 1]
+            if inside(cur):
+                if not inside(prev):
+                    out.append(cross(prev, cur))
+                out.append(cur)
+            elif inside(prev):
+                out.append(cross(prev, cur))
+        return out
+
+    def at_x(x):
+        return lambda a, b: (x, a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]))
+
+    def at_z(z):
+        return lambda a, b: (a[0] + (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]), z)
+
+    poly = list(points)
+    for inside, cross in ((lambda p: p[0] >= min_x, at_x(min_x)), (lambda p: p[0] <= max_x, at_x(max_x)),
+                          (lambda p: p[1] >= min_z, at_z(min_z)), (lambda p: p[1] <= max_z, at_z(max_z))):
+        if not poly:
+            break
+        poly = clip(poly, inside, cross)
+    return poly
+
+
+def build_parks(origin, edges):
+    """公園、運動場、草地：範圍內不蓋房子，畫成綠地。"""
+    data = json.loads(PARKS_JSON.read_text(encoding="utf-8"))
+    xs = [p[0] for e in edges for p in e["points"]]
+    zs = [p[1] for e in edges for p in e["points"]]
+    rect = (min(xs) - 80.0, min(zs) - 80.0, max(xs) + 80.0, max(zs) + 80.0)
+    parks = []
+    for element in data["elements"]:
+        if element["type"] != "way":
+            continue
+        ring = [route.to_xy(g["lat"], g["lon"]) for g in element["geometry"]]
+        if len(ring) < 4 or math.dist(ring[0], ring[-1]) > 0.5:
+            continue
+        ring = [(x - origin[0], z - origin[1]) for x, z in ring[:-1]]
+        ring = clip_polygon(ring, *rect)
+        if len(ring) >= 3 and polygon_area(ring) >= PARK_MIN_AREA:
+            tags = element["tags"]
+            kind = tags.get("leisure") or tags.get("landuse")
+            parks.append({"name": tags.get("name", kind), "kind": kind, "points": ring})
+    return parks
 
 
 def build_bridge(name, bridge_ways, position, origin):
@@ -196,6 +347,8 @@ def main():
             "width": WIDTH[tags["highway"]],
             "oneway": oneway,
             "length": round(length, 2),
+            # 分隔島在哪一側：1 右手邊、-1 左手邊、0 沒有（pair_carriageways 填入）
+            "median": 0,
             "points": [(p[0] - origin[0], p[1] - origin[1]) for p in sampled],
         }
         edges.append(edge)
@@ -203,6 +356,8 @@ def main():
             service_edges.add(edge["id"])
         junctions[a]["edges"].append(edge["id"])
         junctions[b]["edges"].append(edge["id"])
+
+    medians = pair_carriageways(edges, junctions)
 
     # 紅綠燈：附近有號誌、至少三岔、而且接到主要道路的路口（service 巷弄不算一岔，避免巷口多出號誌）
     local_signals = [(s[0] - origin[0], s[1] - origin[1]) for s in signals]
@@ -293,6 +448,8 @@ def main():
         "attribution": "© OpenStreetMap contributors (ODbL)",
         "junctions": [{**j, "x": round(j["x"], 2), "z": round(j["z"], 2)} for j in junctions],
         "edges": [{**e, "points": pts(e["points"])} for e in edges],
+        "medians": [{"points": pts(m["points"]), "widths": [round(w, 2) for w in m["widths"]]} for m in medians],
+        "parks": [{"name": park["name"], "kind": park["kind"], "points": pts(park["points"])} for park in build_parks(origin, edges)],
         "bridges": [{"name": b["name"], "width": b["width"], "points": pts(b["points"])} for b in bridges],
         "newTown": pts(new_town),
         "destinations": [{**d, "x": round(d["x"], 2), "z": round(d["z"], 2)} for d in chosen],
@@ -311,6 +468,8 @@ def main():
     print(f"範圍 {max(xs) - min(xs):.0f} × {max(zs) - min(zs):.0f} 公尺")
     print(f"送貨地點 {len(chosen)} 個，例如：{'、'.join(d['name'] for d in chosen[:6])}")
     print(f"衝刺賽 {route.polyline_length(sprint):.0f} 公尺；繞圈賽一圈 {best_loop[3]:.0f} 公尺，經過：{'、'.join(dict.fromkeys(edges[e]['name'] for e in best_loop[2] if edges[e]['name']))}")
+    print(f"分隔島 {len(medians)} 段，共 {sum(route.polyline_length(m['points']) for m in medians) / 1000:.1f} 公里；"
+          f"公園綠地 {len(result['parks'])} 塊")
     for b in bridges:
         print(f"{b['name']}：做 {route.polyline_length(b['points']):.0f} 公尺（全長 {b['full']:.0f} 公尺），橋面寬 {b['width']} 公尺")
     print(f"檔案 {OUTPUT.stat().st_size / 1024:.0f} KB")

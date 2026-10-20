@@ -7,7 +7,7 @@ namespace MotorAndSpeed.World
     // 對應 tools/build_world_data.py 產生的 JSON，欄位名稱需與 JSON 完全相同
 
     /// <summary>
-    /// 五股世界路網：路段、路口、高架橋、重劃區範圍、送貨地點、賽道。
+    /// 五股世界路網：路段、路口、分隔島、公園綠地、高架橋、重劃區範圍、送貨地點、賽道。
     /// </summary>
     [Serializable]
     public class WorldData
@@ -15,6 +15,10 @@ namespace MotorAndSpeed.World
         public string attribution;
         public List<JunctionData> junctions;
         public List<EdgeData> edges;
+        // 雙向分隔道路中間的分隔島
+        public List<MedianData> medians = new List<MedianData>();
+        // 公園、運動場、草地：不蓋房子
+        public List<ParkData> parks = new List<ParkData>();
         // 高架橋不在平面路網裡，另外蓋成可騎的橋面
         public List<BridgeData> bridges = new List<BridgeData>();
         public List<RoutePoint> newTown;
@@ -56,6 +60,26 @@ namespace MotorAndSpeed.World
         // 1：只能從 start 往 end；-1：只能反向；0：雙向
         public int oneway;
         public float length;
+        // 分隔島在哪一側（依 points 的順序）：1 右手邊、-1 左手邊、0 沒有
+        public int median;
+        public List<RoutePoint> points;
+    }
+
+    [Serializable]
+    public class MedianData
+    {
+        // 分隔島中線，以及每個點的寬度
+        public List<RoutePoint> points;
+        public List<float> widths;
+    }
+
+    [Serializable]
+    public class ParkData
+    {
+        public string name;
+        // OSM 類型：park、pitch、garden、grass 等（運動場不種樹）
+        public string kind;
+        // 外框，首尾不重複
         public List<RoutePoint> points;
     }
 
