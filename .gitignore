@@ -115,3 +115,6 @@ InitTestScene*.unity*
 
 # 截圖比較工具的輸出
 /[Ss]creenshots/
+
+# WebGL 打包時 Burst 編譯器產生的暫存檔
+/[Dd]ata/
