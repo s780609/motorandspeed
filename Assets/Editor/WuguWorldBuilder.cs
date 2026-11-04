@@ -47,6 +47,8 @@ namespace MotorAndSpeed.EditorTools
         private const float PARK_TREE_SPACING = 14f;
         private const int PARK_TREE_LIMIT = 300;
         private const float MEDIAN_HEIGHT = 0.18f;
+        // 車輛在畫面上小於這個高度比例就不畫（大約 120 公尺外，已經在霧裡）
+        private const float VEHICLE_CULL_HEIGHT = 0.02f;
         private const float MEDIAN_TREE_WIDTH = 4f;
 
         private static readonly HashSet<string> HeroRoads = new HashSet<string> { "成泰路二段", "成泰路三段" };
@@ -1210,6 +1212,7 @@ namespace MotorAndSpeed.EditorTools
                 Recolor(scooterBody, "body", PrototypeSceneBuilder.GetMaterial($"Racer{i}Body", racers[i].Body));
                 Recolor(rider, "rider_jacket", PrototypeSceneBuilder.GetMaterial($"Racer{i}Jacket", racers[i].Jacket));
                 Recolor(rider, "rider_helmet", PrototypeSceneBuilder.GetMaterial($"Racer{i}Helmet", racers[i].Helmet));
+                AddDistanceCulling(root);
                 RacerAI racer = root.AddComponent<RacerAI>();
                 SerializedObject racerSettings = new SerializedObject(racer);
                 racerSettings.FindProperty("_maxSpeed").floatValue = racers[i].MaxSpeed;
@@ -1259,6 +1262,7 @@ namespace MotorAndSpeed.EditorTools
                 PrototypeSceneBuilder.AddModel(model, root.transform, Vector3.zero);
             }
 
+            AddDistanceCulling(root);
             WorldVehicle vehicle = root.AddComponent<WorldVehicle>();
             SerializedObject serialized = new SerializedObject(vehicle);
             serialized.FindProperty("_cruiseSpeed").floatValue = cruise;
@@ -1310,6 +1314,14 @@ namespace MotorAndSpeed.EditorTools
             Object.DestroyImmediate(root);
 
             return prefab.GetComponent<WorldVehicle>();
+        }
+
+        private static void AddDistanceCulling(GameObject root)
+        {
+            // 只有一層 LOD：近處正常畫，遠處整台不畫，減少網頁版的 draw call
+            LODGroup group = root.AddComponent<LODGroup>();
+            group.SetLODs(new[] { new LOD(VEHICLE_CULL_HEIGHT, root.GetComponentsInChildren<Renderer>(true)) });
+            group.RecalculateBounds();
         }
 
         private static void AddEngineAudio(GameObject root, string clipName, float idlePitch, float maxPitch, float topSpeed, float idleVolume, float maxVolume, float minDistance, float maxDistance, float fullThrottleAcceleration)
