@@ -146,6 +146,13 @@ namespace MotorAndSpeed.EditorTools
             foreach (Transform chunk in _chunks.Values)
             {
                 MeshTools.Combine(chunk, mesh => Keep(chunk.name, mesh));
+
+                // 每棟房子的碰撞方塊收到 Lot 身上，減少上萬個只掛碰撞體的子物件
+                foreach (Transform lot in chunk)
+                {
+                    if (lot.name == "Lot" || lot.name == "TowerLot")
+                        MeshTools.FoldBoxColliders(lot);
+                }
             }
 
             MeshTools.Combine(_markings, mesh => Keep("Markings", mesh));
@@ -156,7 +163,7 @@ namespace MotorAndSpeed.EditorTools
             PrototypeSceneBuilder.AddGameSounds();
             ApplyAtmosphere();
 
-            MeshTools.SaveBundles(MESH_FOLDER, _meshes);
+            MeshTools.SaveBundles(MESH_FOLDER, _meshes, COLLIDER_GROUP);
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
             PrototypeSceneBuilder.AddSceneToBuild(SCENE_PATH);
             AssetDatabase.SaveAssets();
@@ -707,7 +714,7 @@ namespace MotorAndSpeed.EditorTools
             if (car)
             {
                 // 汽車順著車流方向停
-                Transform parked = PrototypeSceneBuilder.AddModel("car", parent, position);
+                Transform parked = PrototypeSceneBuilder.AddModel("car_parked", parent, position);
                 parked.localRotation = Quaternion.LookRotation(path.GetTangent(s) * side);
                 int color = _random.Next(CarColors.Length);
                 Recolor(parked, "car_paint", PrototypeSceneBuilder.GetMaterial($"NpcCarPaint{color}", CarColors[color]));
@@ -814,13 +821,14 @@ namespace MotorAndSpeed.EditorTools
 
         private static Renderer Lamp(Transform parent, Vector3 position)
         {
-            GameObject lamp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            lamp.name = "Lamp";
+            // 燈號用扁的八角柱朝前後（球體每顆 768 個三角形，全世界有 576 顆又不能合併）
+            GameObject lamp = new GameObject("Lamp");
             lamp.transform.SetParent(parent, false);
             lamp.transform.localPosition = position;
-            lamp.transform.localScale = Vector3.one * 0.3f;
-            Object.DestroyImmediate(lamp.GetComponent<Collider>());
-            MeshRenderer renderer = lamp.GetComponent<MeshRenderer>();
+            lamp.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            lamp.transform.localScale = new Vector3(0.3f, 0.06f, 0.3f);
+            lamp.AddComponent<MeshFilter>().sharedMesh = MeshTools.Prism8;
+            MeshRenderer renderer = lamp.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = _materials.LampOff;
 
             return renderer;

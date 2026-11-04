@@ -255,10 +255,8 @@ namespace MotorAndSpeed.EditorTools
             scooter.SetParent(parent, false);
             scooter.SetLocalPositionAndRotation(localPosition, localRotation);
 
-            Transform body = PrototypeSceneBuilder.AddModel("scooter_body", scooter, Vector3.zero);
-            PrototypeSceneBuilder.AddModel("scooter_handlebar", scooter, new Vector3(0f, 0.98f, 0.52f));
-            PrototypeSceneBuilder.AddModel("scooter_wheel", scooter, new Vector3(0f, 0.24f, 0.65f));
-            PrototypeSceneBuilder.AddModel("scooter_wheel", scooter, new Vector3(0f, 0.24f, -0.65f));
+            // 停放的車會被合併進世界區塊，每台都複製一份網格，所以用低模
+            Transform body = PrototypeSceneBuilder.AddModel("scooter_parked", scooter, Vector3.zero);
             RecolorBody(body, Pick(_palette.ScooterBodies));
 
             return scooter;
@@ -367,14 +365,15 @@ namespace MotorAndSpeed.EditorTools
 
         internal static void Cylinder(string name, Transform parent, Vector3 position, float diameter, float height, Material material, bool withCollider)
         {
-            GameObject cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            cylinder.name = name;
+            // 用八角柱取代 Unity 內建圓柱（頂點少一半），碰撞體同內建圓柱用膠囊
+            GameObject cylinder = new GameObject(name);
             cylinder.transform.SetParent(parent, false);
             cylinder.transform.localPosition = position;
             cylinder.transform.localScale = new Vector3(diameter, height / 2f, diameter);
-            cylinder.GetComponent<MeshRenderer>().sharedMaterial = material;
-            if (!withCollider)
-                Object.DestroyImmediate(cylinder.GetComponent<Collider>());
+            cylinder.AddComponent<MeshFilter>().sharedMesh = MeshTools.Prism8;
+            cylinder.AddComponent<MeshRenderer>().sharedMaterial = material;
+            if (withCollider)
+                cylinder.AddComponent<CapsuleCollider>();
         }
 
         internal static void Line(string name, Transform parent, Vector3 from, Vector3 to, Material material)

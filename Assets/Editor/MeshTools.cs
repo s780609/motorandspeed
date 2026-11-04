@@ -319,7 +319,7 @@ namespace MotorAndSpeed.EditorTools
 
         public static Mesh CreateMesh(string name, Vector3[] vertices, Vector3[] normals, Vector2[] uv, int[] triangles)
         {
-            Mesh mesh = new Mesh { name = name, indexFormat = IndexFormat.UInt32 };
+            Mesh mesh = new Mesh { name = name, indexFormat = IndexFormatFor(vertices.Length) };
             mesh.vertices = vertices;
             mesh.normals = normals;
             mesh.uv = uv;
@@ -388,6 +388,14 @@ namespace MotorAndSpeed.EditorTools
                 Mesh combined = new Mesh { name = $"{root.name}_{group.Key.name}", indexFormat = IndexFormat.UInt32 };
                 combined.CombineMeshes(group.Value.ToArray(), true, true);
 
+                // 合併後頂點不多就改用 16 位元索引，索引資料減半
+                if (combined.vertexCount < 65535)
+                {
+                    int[] triangles = combined.triangles;
+                    combined.indexFormat = IndexFormat.UInt16;
+                    combined.triangles = triangles;
+                }
+
                 // 沒有法線貼圖就不需要切線；純色材質也不需要 UV，可以省下大量檔案空間
                 combined.tangents = null;
                 if (group.Key.GetTexture("_BaseMap") == null)
@@ -406,7 +414,7 @@ namespace MotorAndSpeed.EditorTools
         /// <summary>
         /// 把網格依分組存成二進位資源檔（每組一個檔案）。
         /// </summary>
-        public static void SaveBundles(string folder, Dictionary<string, List<Mesh>> groups)
+        public static void SaveBundles(string folder, Dictionary<string, List<Mesh>> groups, string readableGroup)
         {
             PrototypeSceneBuilder.EnsureFolder(folder);
             foreach (KeyValuePair<string, List<Mesh>> group in groups)
@@ -417,11 +425,115 @@ namespace MotorAndSpeed.EditorTools
                 AssetDatabase.CreateAsset(bundle, path);
                 foreach (Mesh mesh in group.Value)
                 {
+                    // 只用來渲染的網格設成不可讀：執行期只留 GPU 那一份；MeshCollider 要讀資料，碰撞群組保持可讀
+                    if (group.Key != readableGroup)
+                        SetReadable(mesh, false);
+
                     AssetDatabase.AddObjectToAsset(mesh, path);
                 }
             }
 
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// 共用的八角柱網格（尺寸同 Unity 內建圓柱：直徑 1、高 2、中心在原點），頂點只有內建圓柱的一半。
+        /// </summary>
+        public static Mesh Prism8
+        {
+            get
+            {
+                if (_prism8 == null)
+                    _prism8 = BuildPrism(8);
+
+                return _prism8;
+            }
+        }
+
+        /// <summary>
+        /// 把 root 底下只掛 BoxCollider 的子物件，收成 root 本身的多個 BoxCollider（世界中的範圍不變），
+        /// 再刪掉變空的子物件。合併網格之後呼叫，可以大幅減少場景物件數。
+        /// </summary>
+        public static void FoldBoxColliders(Transform root)
+        {
+            Matrix4x4 toRoot = root.worldToLocalMatrix;
+            foreach (BoxCollider box in root.GetComponentsInChildren<BoxCollider>(true))
+            {
+                if (box.transform == root || box.GetComponents<Component>().Length != 2)
+                    continue;
+
+                // 有旋轉的碰撞體收到 root 會變形，留在原處
+                Matrix4x4 matrix = toRoot * box.transform.localToWorldMatrix;
+                if (Mathf.Abs(matrix.m01) + Mathf.Abs(matrix.m02) + Mathf.Abs(matrix.m10) + Mathf.Abs(matrix.m12) + Mathf.Abs(matrix.m20) + Mathf.Abs(matrix.m21) > 1e-4f)
+                    continue;
+
+                BoxCollider folded = root.gameObject.AddComponent<BoxCollider>();
+                folded.center = matrix.MultiplyPoint3x4(box.center);
+                folded.size = Vector3.Scale(new Vector3(Mathf.Abs(matrix.m00), Mathf.Abs(matrix.m11), Mathf.Abs(matrix.m22)), box.size);
+                folded.isTrigger = box.isTrigger;
+                folded.sharedMaterial = box.sharedMaterial;
+                Object.DestroyImmediate(box);
+            }
+
+            RemoveEmptyChildren(root);
+        }
+
+        private static Mesh _prism8;
+
+        private static IndexFormat IndexFormatFor(int vertexCount)
+        {
+            return vertexCount < 65535 ? IndexFormat.UInt16 : IndexFormat.UInt32;
+        }
+
+        private static void SetReadable(Mesh mesh, bool readable)
+        {
+            SerializedObject serialized = new SerializedObject(mesh);
+            serialized.FindProperty("m_IsReadable").boolValue = readable;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static Mesh BuildPrism(int sides)
+        {
+            List<Vector3> vertices = new List<Vector3>();
+            List<Vector3> normals = new List<Vector3>();
+            List<Vector2> uv = new List<Vector2>();
+            List<int> triangles = new List<int>();
+            for (int i = 0; i < sides; i++)
+            {
+                // 側面：每面 4 個頂點，平面著色；UV 沿圓周 0~1、沿高度 0~1（警示套貼圖用）
+                float a0 = 2f * Mathf.PI * i / sides;
+                float a1 = 2f * Mathf.PI * (i + 1) / sides;
+                Vector3 p0 = new Vector3(Mathf.Cos(a0) * 0.5f, 0f, Mathf.Sin(a0) * 0.5f);
+                Vector3 p1 = new Vector3(Mathf.Cos(a1) * 0.5f, 0f, Mathf.Sin(a1) * 0.5f);
+                Vector3 normal = ((p0 + p1) * 0.5f).normalized;
+                int start = vertices.Count;
+                vertices.AddRange(new[] { p0 + Vector3.down, p0 + Vector3.up, p1 + Vector3.up, p1 + Vector3.down });
+                normals.AddRange(new[] { normal, normal, normal, normal });
+                uv.AddRange(new[] { new Vector2((float)i / sides, 0f), new Vector2((float)i / sides, 1f), new Vector2((float)(i + 1) / sides, 1f), new Vector2((float)(i + 1) / sides, 0f) });
+                triangles.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
+            }
+
+            foreach (float y in new[] { 1f, -1f })
+            {
+                int start = vertices.Count;
+                for (int i = 0; i < sides; i++)
+                {
+                    float a = 2f * Mathf.PI * i / sides;
+                    vertices.Add(new Vector3(Mathf.Cos(a) * 0.5f, y, Mathf.Sin(a) * 0.5f));
+                    normals.Add(new Vector3(0f, y, 0f));
+                    uv.Add(new Vector2(Mathf.Cos(a) * 0.5f + 0.5f, Mathf.Sin(a) * 0.5f + 0.5f));
+                }
+
+                for (int i = 1; i < sides - 1; i++)
+                {
+                    if (y > 0f)
+                        triangles.AddRange(new[] { start, start + i + 1, start + i });
+                    else
+                        triangles.AddRange(new[] { start, start + i, start + i + 1 });
+                }
+            }
+
+            return CreateMesh($"Prism{sides}", vertices.ToArray(), normals.ToArray(), uv.ToArray(), triangles.ToArray());
         }
 
         private static void RemoveEmptyChildren(Transform parent)

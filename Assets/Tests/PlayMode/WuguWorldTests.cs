@@ -258,6 +258,19 @@ namespace MotorAndSpeed.Tests
             Assert.AreEqual($"{LOT_COUNT}/{TOWER_LOT_COUNT}/{LAYOUT_HASH}", $"{lots}/{towers}/{hash}", "建築配置變了：共用亂數的呼叫次數或順序被動到");
         }
 
+        [UnityTest]
+        public IEnumerator WuguWorld_ObjectAndColliderBudget()
+        {
+            // 場景物件越少，網頁版載入越快、場景檔越小
+            yield return LoadWorld();
+            int objects = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+            int boxes = Object.FindObjectsByType<BoxCollider>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+
+            Assert.LessOrEqual(objects, 26000, $"場景物件 {objects} 個");
+            // 含執行時生成的 120 台 NPC 車輛碰撞體
+            Assert.LessOrEqual(boxes, 16200, $"BoxCollider {boxes} 個");
+        }
+
         private IEnumerator LoadWorld()
         {
             SceneManager.LoadScene("WuguWorld");
