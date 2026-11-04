@@ -487,6 +487,7 @@ namespace MotorAndSpeed.Game
 
         private void OnGUI()
         {
+            UiFont.ApplyToSkin();
             EnsureStyles();
             if (_banner != null && Time.time < _bannerUntil)
                 GUI.Label(new Rect(0f, Screen.height * 0.25f, Screen.width, 80f), _banner, _bigStyle);

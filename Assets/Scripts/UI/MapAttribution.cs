@@ -11,6 +11,7 @@ namespace MotorAndSpeed.UI
 
         private void OnGUI()
         {
+            UiFont.ApplyToSkin();
             if (_style == null)
             {
                 _style = new GUIStyle(GUI.skin.label) { fontSize = 12 };

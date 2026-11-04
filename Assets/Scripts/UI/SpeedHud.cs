@@ -15,6 +15,7 @@ namespace MotorAndSpeed.UI
 
         private void OnGUI()
         {
+            UiFont.ApplyToSkin();
             if (_target == null)
                 return;
 

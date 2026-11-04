@@ -178,7 +178,7 @@ namespace MotorAndSpeed.UI
             labelRect.anchorMax = Vector2.one;
             labelRect.offsetMin = new Vector2(12f, 0f);
             labelRect.offsetMax = new Vector2(-8f, 0f);
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.font = UiFont.Font;
             label.fontSize = 16;
             label.color = Color.white;
             label.alignment = TextAnchor.MiddleLeft;

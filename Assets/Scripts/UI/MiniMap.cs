@@ -494,7 +494,7 @@ namespace MotorAndSpeed.UI
             compass.gameObject.AddComponent<Button>().onClick.AddListener(() => _northUp = !_northUp);
             _compass = compass.rectTransform;
             Text north = CreateRect("N", _compass).gameObject.AddComponent<Text>();
-            north.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            north.font = UiFont.Font;
             north.fontSize = 15;
             north.fontStyle = FontStyle.Bold;
             north.alignment = TextAnchor.MiddleCenter;
@@ -504,7 +504,7 @@ namespace MotorAndSpeed.UI
             north.rectTransform.sizeDelta = new Vector2(22f, 22f);
 
             Text hint = CreateRect("Hint", _frame).gameObject.AddComponent<Text>();
-            hint.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            hint.font = UiFont.Font;
             hint.fontSize = 13;
             hint.color = new Color(1f, 1f, 1f, 0.85f);
             hint.text = "+ / - 或滾輪：縮放　M：大地圖　N：正北朝上";
