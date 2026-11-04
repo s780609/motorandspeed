@@ -140,6 +140,7 @@ namespace MotorAndSpeed.EditorTools
             BuildFrontages(Level.Minor);
             BuildHills(min, max);
 
+            MeshTools.LogVertexBreakdown(_chunks.Values);
             foreach (Transform chunk in _chunks.Values)
             {
                 MeshTools.Combine(chunk, mesh => Keep(chunk.name, mesh));

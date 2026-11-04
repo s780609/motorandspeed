@@ -227,6 +227,37 @@ namespace MotorAndSpeed.Tests
             Assert.AreEqual(0f, map.MapRotation, 0.01f, "正北朝上時地圖不旋轉");
         }
 
+        // 建築配置的基準：Lot／TowerLot 的數量與位置雜湊。美化只能加細節，不能讓共用亂數的呼叫順序改變
+        private const int LOT_COUNT = 8157;
+        private const int TOWER_LOT_COUNT = 50;
+        private const long LAYOUT_HASH = 3371670023481336;
+
+        [UnityTest]
+        public IEnumerator Buildings_LayoutUnchanged()
+        {
+            yield return LoadWorld();
+            int lots = 0;
+            int towers = 0;
+            long hash = 0;
+            foreach (Transform transform in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
+            {
+                bool lot = transform.name == "Lot";
+                if (!lot && transform.name != "TowerLot")
+                    continue;
+
+                if (lot)
+                    lots++;
+                else
+                    towers++;
+
+                // 與順序無關的加總雜湊，位置取到 0.1 公尺
+                Vector3 position = transform.position;
+                hash += ((long)Mathf.RoundToInt(position.x * 10f) * 73856093L) ^ ((long)Mathf.RoundToInt(position.z * 10f) * 19349663L);
+            }
+
+            Assert.AreEqual($"{LOT_COUNT}/{TOWER_LOT_COUNT}/{LAYOUT_HASH}", $"{lots}/{towers}/{hash}", "建築配置變了：共用亂數的呼叫次數或順序被動到");
+        }
+
         private IEnumerator LoadWorld()
         {
             SceneManager.LoadScene("WuguWorld");

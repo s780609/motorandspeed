@@ -13,6 +13,42 @@ namespace MotorAndSpeed.EditorTools
     internal static class MeshTools
     {
         /// <summary>
+        /// 依網格名稱統計「實例數 × 頂點數」的前幾名並輸出到 log：合併前呼叫，找出最佔世界資料的物件。
+        /// </summary>
+        public static void LogVertexBreakdown(IEnumerable<Transform> roots, int top = 15)
+        {
+            Dictionary<string, int> counts = new Dictionary<string, int>();
+            Dictionary<string, long> vertices = new Dictionary<string, long>();
+            long total = 0;
+            foreach (Transform root in roots)
+            {
+                foreach (MeshFilter filter in root.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    Mesh mesh = filter.sharedMesh;
+                    if (mesh == null)
+                        continue;
+
+                    counts.TryGetValue(mesh.name, out int count);
+                    vertices.TryGetValue(mesh.name, out long sum);
+                    counts[mesh.name] = count + 1;
+                    vertices[mesh.name] = sum + mesh.vertexCount;
+                    total += mesh.vertexCount;
+                }
+            }
+
+            List<string> names = new List<string>(vertices.Keys);
+            names.Sort((a, b) => vertices[b].CompareTo(vertices[a]));
+            System.Text.StringBuilder log = new System.Text.StringBuilder($"[MeshTools] 合併前頂點統計：共 {total:N0} 個頂點\n");
+            for (int i = 0; i < Mathf.Min(top, names.Count); i++)
+            {
+                string name = names[i];
+                log.AppendLine($"  {name}: {counts[name]:N0} 個 × 平均 {vertices[name] / counts[name]:N0} = {vertices[name]:N0}（{100.0 * vertices[name] / total:F1}%）");
+            }
+
+            Debug.Log(log.ToString());
+        }
+
+        /// <summary>
         /// 沿著路徑產生平面帶狀網格（路面、標線、人行道），offset 以路徑右手邊為正。
         /// </summary>
         public static Mesh Ribbon(RoutePath path, float s0, float s1, float offsetA, float offsetB, float y, float step = 2f)

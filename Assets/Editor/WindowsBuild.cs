@@ -13,8 +13,8 @@ namespace MotorAndSpeed.EditorTools
     {
         private const string OUTPUT_PATH = "Builds/Windows/MotorAndSpeed.exe";
 
-        // 第一個場景是遊戲啟動時載入的場景
-        private static readonly string[] Scenes =
+        // 第一個場景是遊戲啟動時載入的場景（WebGLBuild 共用）
+        internal static readonly string[] Scenes =
         {
             "Assets/Scenes/WuguWorld.unity",
             "Assets/Scenes/Prototype.unity",
