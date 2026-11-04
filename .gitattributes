@@ -1,0 +1,2 @@
+# gh-pages 只放網頁版建置檔：全部直接存進 git，不走 LFS（GitHub Pages 不會解析 LFS 指標檔）
+* -filter -diff -merge -text
