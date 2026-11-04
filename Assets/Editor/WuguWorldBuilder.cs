@@ -491,7 +491,7 @@ namespace MotorAndSpeed.EditorTools
             foreach (Vector3 position in trees)
             {
                 Transform parent = Chunk(position);
-                Transform tree = PrototypeSceneBuilder.AddModel("tree", parent, position);
+                Transform tree = PrototypeSceneBuilder.AddModel(TreeModel(position, 0.5, 0.85), parent, position);
                 tree.localRotation = Quaternion.Euler(0f, (float)_random.NextDouble() * 360f, 0f);
                 float scale = 0.9f + (float)_random.NextDouble() * 0.5f;
                 tree.localScale = Vector3.one * scale;
@@ -536,7 +536,7 @@ namespace MotorAndSpeed.EditorTools
                         continue;
 
                     Vector3 position = path.GetPoint(s) + Vector3.up * MEDIAN_HEIGHT;
-                    Transform tree = PrototypeSceneBuilder.AddModel("tree", Chunk(position), position);
+                    Transform tree = PrototypeSceneBuilder.AddModel(TreeModel(position, 0.6, 0.6), Chunk(position), position);
                     tree.localRotation = Quaternion.Euler(0f, (float)_random.NextDouble() * 360f, 0f);
                     CapsuleCollider trunk = tree.gameObject.AddComponent<CapsuleCollider>();
                     trunk.center = new Vector3(0f, 1.2f, 0f);
@@ -769,9 +769,17 @@ namespace MotorAndSpeed.EditorTools
                     Vector3 travel = -new Vector3(outward[i].x, 0f, outward[i].y);
                     Vector2 pole = placement.PolePosition(junction, new Vector2(travel.x, travel.z), edge.width / 2f);
                     Vector3 poleBase = new Vector3(pole.x - center.x, 0f, pole.y - center.z);
-                    TaiwanStreetBuilder.Cylinder("SignalPole", root, poleBase + Vector3.up * 2.2f, 0.2f, 4.4f, _materials.SignalPole, true);
-                    SignalHead head = BuildHead(root, poleBase + Vector3.up * 4.1f, travel);
+
+                    // 懸臂式紅綠燈：燈桿立在路邊，懸臂往駕駛左手邊（車道上方）伸出，燈頭高過大貨車
+                    Vector3 left = Vector3.Cross(travel, Vector3.up).normalized;
+                    float armLength = Mathf.Clamp(edge.width / 2f - 1.5f, 2f, 7f);
+                    TaiwanStreetBuilder.Cylinder("SignalPole", root, poleBase + Vector3.up * 3.1f, 0.2f, 6.2f, _materials.SignalPole, true);
+                    PrototypeSceneBuilder.CreateBlock("SignalArm", root, poleBase + left * (armLength / 2f) + Vector3.up * 5.95f, new Vector3(0.14f, 0.14f, armLength), _materials.SignalPole, false, Quaternion.LookRotation(left));
+                    SignalHead head = BuildHead(root, poleBase + left * armLength + Vector3.up * 5.6f, travel);
                     (phases[i] == 0 ? mainHeads : crossHeads).Add(head);
+
+                    if (i == 0)
+                        AddStreetFurniture(junction, pole, travel);
                 }
 
                 TrafficSignal signal = root.gameObject.AddComponent<TrafficSignal>();
@@ -779,6 +787,18 @@ namespace MotorAndSpeed.EditorTools
                     _materials.LampOff, _materials.RedOn, _materials.YellowOn, _materials.GreenOn);
                 signal.ConfigureJunction(junction.id, junction.edges.ToArray(), phases);
             }
+        }
+
+        private static void AddStreetFurniture(JunctionData junction, Vector2 pole, Vector3 travel)
+        {
+            // 號誌路口的人行道上放一個街頭小物：沿著燈桿所在的路緣往外 4 公尺，不加碰撞體
+            System.Random random = LotSeed.Random(junction.x, junction.z, 9);
+            double roll = random.NextDouble();
+            string model = roll < 0.4 ? "mailbox" : roll < 0.75 ? "hydrant" : "bus_shelter";
+            Vector3 left = Vector3.Cross(travel, Vector3.up).normalized;
+            Vector3 position = new Vector3(pole.x, TaiwanStreetBuilder.SIDEWALK_TOP, pole.y) + travel.normalized * 4f - left * 0.6f;
+            Transform item = PrototypeSceneBuilder.AddModel(model, Chunk(position), position);
+            item.localRotation = Quaternion.LookRotation(left);
         }
 
         private static SignalHead BuildHead(Transform parent, Vector3 position, Vector3 driverForward)
@@ -954,7 +974,7 @@ namespace MotorAndSpeed.EditorTools
 
             // 樓上：整面重複窗戶貼圖的外牆，一個方塊取代幾十個零件
             Vector3 upperSize = new Vector3(SHOPHOUSE_DEPTH, upperHeight, width);
-            GameObject upper = MeshObject("UpperFloors", lot, MeshTools.TiledBox(upperSize, new Vector2(3f, 3.2f)), TaiwanStreetBuilder.Pick(_materials.FacadeTiles), false);
+            GameObject upper = MeshObject("UpperFloors", lot, MeshTools.TiledBox(upperSize, new Vector2(3f, 3.2f), true), TaiwanStreetBuilder.Pick(_materials.FacadeTiles), false);
             upper.transform.localPosition = new Vector3(side * (facade + SHOPHOUSE_DEPTH / 2f), arcadeHeight + upperHeight / 2f, 0f);
             upper.AddComponent<BoxCollider>().size = upperSize;
 
@@ -975,6 +995,50 @@ namespace MotorAndSpeed.EditorTools
                 float roof = arcadeHeight + upperHeight;
                 PrototypeSceneBuilder.CreateBlock("RooftopShed", lot, new Vector3(side * (facade + SHOPHOUSE_DEPTH / 2f + 0.5f), roof + 1.2f, 0f), new Vector3(SHOPHOUSE_DEPTH - 2f, 2.4f, width - 0.6f), TaiwanStreetBuilder.Pick(street.Sheds), false);
             }
+
+            System.Random detail = LotSeed.Random(lot.position.x, lot.position.z, 1);
+            AddDetails(lot, side, FacadeDetailPlan.MainShophouse(facade, SHOPHOUSE_DEPTH, z0, z1, arcadeHeight, arcadeHeight + upperHeight, detail), detail);
+        }
+
+        private static string TreeModel(Vector3 position, double plainChance, double broadThreshold)
+        {
+            // 依位置挑樹種（不動共用亂數）：一般行道樹、樟樹、大王椰子
+            double roll = LotSeed.Random(position.x, position.z, 4).NextDouble();
+
+            return roll < plainChance ? "tree" : roll < broadThreshold ? "tree_broad" : "tree_palm";
+        }
+
+        private static void AddDetails(Transform lot, int side, List<DetailPart> parts, System.Random random)
+        {
+            // 外觀細節：鐵窗、冷氣、女兒牆、水塔等，不加碰撞體，沿用現有材質（不增加 draw call）
+            TaiwanStreetBuilder.Palette street = TaiwanStreetBuilder.Materials;
+            foreach (DetailPart part in parts)
+            {
+                Vector3 center = new Vector3(part.Center.x * side, part.Center.y, part.Center.z);
+                switch (part.Kind)
+                {
+                    case DetailKind.WaterTank:
+                        TaiwanStreetBuilder.Cylinder("WaterTank", lot, center, part.Size.x, part.Size.y, street.WaterTank, false);
+                        break;
+                    case DetailKind.Antenna:
+                        TaiwanStreetBuilder.Cylinder("Antenna", lot, center, part.Size.x, part.Size.y, street.CageMetal, false);
+                        break;
+                    default:
+                        Material material = part.Kind switch
+                        {
+                            DetailKind.Parapet => street.Band,
+                            DetailKind.Pillar => street.Facades[0],
+                            DetailKind.Cage => street.CageMetal,
+                            DetailKind.CageRoof => street.CageRoof,
+                            DetailKind.AirConditioner => street.AirConditionerBody,
+                            DetailKind.SolarPanel => _materials.SolarPanel,
+                            DetailKind.Shed => TaiwanStreetBuilder.Pick(street.Sheds, random),
+                            _ => street.ShedRoof,
+                        };
+                        PrototypeSceneBuilder.CreateBlock(part.Kind.ToString(), lot, center, part.Size, material, part.Kind == DetailKind.Pillar);
+                        break;
+                }
+            }
         }
 
         private static void BuildSimpleBuilding(Transform lot, int side, float width, float facade, float depth, bool newTown)
@@ -984,9 +1048,11 @@ namespace MotorAndSpeed.EditorTools
             int floors = newTown ? _random.Next(7, 13) : _random.Next(3, 6);
             float height = floors * 3.1f;
             Vector3 size = new Vector3(depth, height, width - 0.3f);
-            GameObject block = MeshObject("Apartment", lot, MeshTools.TiledBox(size, new Vector2(3f, 3.1f)), TaiwanStreetBuilder.Pick(_materials.ApartmentTiles), false);
+            GameObject block = MeshObject("Apartment", lot, MeshTools.TiledBox(size, new Vector2(3f, 3.1f), true), TaiwanStreetBuilder.Pick(_materials.ApartmentTiles), false);
             block.transform.localPosition = new Vector3(side * (facade + depth / 2f), height / 2f, 0f);
             block.AddComponent<BoxCollider>().size = size;
+            System.Random detail = LotSeed.Random(lot.position.x, lot.position.z, 2);
+            AddDetails(lot, side, FacadeDetailPlan.SimpleBuilding(facade, depth, -size.z / 2f, size.z / 2f, height, detail), detail);
 
             Quaternion facing = Quaternion.Euler(0f, 90f * side, 0f);
             if (_random.NextDouble() < 0.5)
@@ -1030,9 +1096,22 @@ namespace MotorAndSpeed.EditorTools
                 // 寬人行道與行道樹
                 PrototypeSceneBuilder.CreateBlock("NewTownSidewalk", lot, new Vector3(side * (half + NEW_TOWN_SIDEWALK / 2f), TaiwanStreetBuilder.SIDEWALK_TOP / 2f, 0f),
                     new Vector3(NEW_TOWN_SIDEWALK, TaiwanStreetBuilder.SIDEWALK_TOP, width + 6f), _materials.Paving, true);
+                int treeIndex = 0;
                 for (float t = -width / 2f; t <= width / 2f + 3f; t += TREE_SPACING)
                 {
-                    Transform tree = PrototypeSceneBuilder.AddModel("tree", lot, new Vector3(side * (half + 1.3f), TaiwanStreetBuilder.SIDEWALK_TOP, t));
+                    // 重劃區人行道以大王椰子為主，每兩棵樹之間立一支路燈
+                    Vector3 treeLocal = new Vector3(side * (half + 1.3f), TaiwanStreetBuilder.SIDEWALK_TOP, t);
+                    Transform tree = PrototypeSceneBuilder.AddModel(TreeModel(lot.TransformPoint(treeLocal), 0.4, 0.4), lot, treeLocal);
+                    if (treeIndex++ % 2 == 1)
+                    {
+                        Transform light = PrototypeSceneBuilder.AddModel("street_light", lot, new Vector3(side * (half + 0.8f), TaiwanStreetBuilder.SIDEWALK_TOP, t - TREE_SPACING / 2f));
+                        light.localRotation = Quaternion.Euler(0f, -90f * side, 0f);
+                        CapsuleCollider post = light.gameObject.AddComponent<CapsuleCollider>();
+                        post.center = new Vector3(0f, 3.25f, 0f);
+                        post.radius = 0.12f;
+                        post.height = 6.5f;
+                    }
+
                     tree.localRotation = Quaternion.Euler(0f, (float)_random.NextDouble() * 360f, 0f);
                     CapsuleCollider trunk = tree.gameObject.AddComponent<CapsuleCollider>();
                     trunk.center = new Vector3(0f, 1.2f, 0f);
@@ -1065,40 +1144,65 @@ namespace MotorAndSpeed.EditorTools
             const float towerDepth = 15f;
             Vector3 towerSize = new Vector3(towerDepth, height, z1 - z0 - 2f);
             Vector3 towerCenter = new Vector3(side * (front + 3f + towerDepth / 2f), podiumHeight + height / 2f, (z0 + z1) / 2f);
-            GameObject tower = MeshObject("Tower", lot, MeshTools.TiledBox(towerSize, new Vector2(3f, 3.1f)), TaiwanStreetBuilder.Pick(_materials.TowerFacades), false);
+            GameObject tower = MeshObject("Tower", lot, MeshTools.TiledBox(towerSize, new Vector2(3f, 3.1f), true), TaiwanStreetBuilder.Pick(_materials.TowerFacades), false);
             tower.transform.localPosition = towerCenter;
             tower.AddComponent<BoxCollider>().size = towerSize;
 
             float roof = podiumHeight + height;
             PrototypeSceneBuilder.CreateBlock("RoofCap", lot, new Vector3(towerCenter.x, roof + 0.15f, towerCenter.z), new Vector3(towerDepth + 0.4f, 0.3f, towerSize.z + 0.4f), _materials.RoofCap, false);
             PrototypeSceneBuilder.CreateBlock("RoofRoom", lot, new Vector3(towerCenter.x, roof + 1.8f, towerCenter.z), new Vector3(5f, 3f, 6f), _materials.Podium, false);
+
+            System.Random detail = LotSeed.Random(lot.position.x, lot.position.z, 3);
+            float towerX0 = front + 3f;
+            AddDetails(lot, side, FacadeDetailPlan.Tower(front, towerX0, towerX0 + towerDepth, towerCenter.z - towerSize.z / 2f, towerCenter.z + towerSize.z / 2f, roof, podiumHeight, detail), detail);
         }
 
         private static void BuildUtilityPoles(RoutePath path, List<float> poles, int side, float poleOffset)
         {
             TaiwanStreetBuilder.Palette street = TaiwanStreetBuilder.Materials;
             Vector3? previousTop = null;
+            Vector3 previousAcross = Vector3.zero;
             float previousS = float.NegativeInfinity;
             foreach (float s in poles)
             {
-                Vector3 basePoint = path.GetPoint(s) + path.GetRight(s) * (side * poleOffset);
+                Vector3 across = path.GetRight(s);
+                Vector3 basePoint = path.GetPoint(s) + across * (side * poleOffset);
                 Transform parent = Chunk(basePoint);
                 float y = TaiwanStreetBuilder.SIDEWALK_TOP;
                 TaiwanStreetBuilder.Cylinder("Pole", parent, basePoint + Vector3.up * (y + 4.5f), 0.28f, 9f, street.Concrete, true);
                 TaiwanStreetBuilder.Cylinder("WarningSleeve", parent, basePoint + Vector3.up * (y + 1f), 0.32f, 2f, street.PoleStripes, false);
 
-                // 電線接到前一根電線桿（中間被重劃區隔開時不接）
-                Vector3 top = basePoint + Vector3.up * 8.4f;
+                // 頂端的橫擔與三個礙子（白色瓷礙子沿用冷氣外殼的白色材質）
+                Quaternion acrossRotation = Quaternion.LookRotation(across);
+                PrototypeSceneBuilder.CreateBlock("CrossArm", parent, basePoint + Vector3.up * 8.6f, new Vector3(0.12f, 0.12f, 1.6f), street.Concrete, false, acrossRotation);
+                for (int i = -1; i <= 1; i++)
+                {
+                    PrototypeSceneBuilder.CreateBlock("Insulator", parent, basePoint + Vector3.up * 8.75f + across * (i * 0.6f), new Vector3(0.1f, 0.18f, 0.1f), street.AirConditionerBody, false);
+                }
+
+                // 部分電線桿掛變壓器（依位置決定，不動共用亂數）
+                if (LotSeed.Random(basePoint.x, basePoint.z, 7).NextDouble() < 0.3)
+                    TaiwanStreetBuilder.Cylinder("Transformer", parent, basePoint + Vector3.up * 6.6f + across * (side * 0.4f), 0.55f, 1.1f, street.Transformer, false);
+
+                // 往馬路伸出的單臂路燈
+                Vector3 toRoad = across * -side;
+                Quaternion roadRotation = Quaternion.LookRotation(toRoad);
+                PrototypeSceneBuilder.CreateBlock("LampArm", parent, basePoint + Vector3.up * 7.3f + toRoad * 0.9f, new Vector3(0.06f, 0.06f, 1.8f), street.Concrete, false, roadRotation);
+                PrototypeSceneBuilder.CreateBlock("LampHousing", parent, basePoint + Vector3.up * 7.3f + toRoad * 1.75f, new Vector3(0.3f, 0.1f, 0.55f), street.Transformer, false, roadRotation);
+                PrototypeSceneBuilder.CreateBlock("LampHead", parent, basePoint + Vector3.up * 7.23f + toRoad * 1.75f, new Vector3(0.24f, 0.05f, 0.45f), _materials.StreetLampHead, false, roadRotation);
+
+                // 電線接在橫擔上，連到前一根電線桿（中間被重劃區隔開時不接）
+                Vector3 top = basePoint + Vector3.up * 8.84f;
                 if (previousTop.HasValue && s - previousS < POLE_SPACING * 1.5f)
                 {
-                    for (int i = 0; i < 3; i++)
+                    for (int i = -1; i <= 1; i++)
                     {
-                        Vector3 drop = Vector3.down * (i * 0.35f);
-                        TaiwanStreetBuilder.Line("Wire", parent, previousTop.Value + drop, top + drop, street.Wire);
+                        TaiwanStreetBuilder.Line("Wire", parent, previousTop.Value + previousAcross * (i * 0.6f), top + across * (i * 0.6f), street.Wire);
                     }
                 }
 
                 previousTop = top;
+                previousAcross = across;
                 previousS = s;
             }
         }
@@ -1477,6 +1581,8 @@ namespace MotorAndSpeed.EditorTools
             public readonly Material Paving = PrototypeSceneBuilder.GetMaterial("NewTownPaving", "#C9C2B6");
             public readonly Material Podium = PrototypeSceneBuilder.GetMaterial("TowerPodium", "#D5D3CE");
             public readonly Material RoofCap = PrototypeSceneBuilder.GetMaterial("TowerRoof", "#5A6168");
+            public readonly Material StreetLampHead = Emissive("StreetLampHead", "#FFF6DA");
+            public readonly Material SolarPanel = PrototypeSceneBuilder.GetMaterial("SolarPanel", "#2B3E57");
             public readonly List<Material> Hills = new List<Material>
             {
                 PrototypeSceneBuilder.GetMaterial("Hill0", "#5F7D4C"),

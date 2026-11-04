@@ -262,57 +262,10 @@ namespace MotorAndSpeed.EditorTools
         /// <summary>
         /// 中心在原點的方塊網格，UV 依公尺計算（每 tile 公尺重複一次貼圖），外牆窗戶才不會被拉長。
         /// </summary>
-        public static Mesh TiledBox(Vector3 size, Vector2 tile)
+        public static Mesh TiledBox(Vector3 size, Vector2 tile, bool plainCaps = false)
         {
-            Vector3 half = size / 2f;
-            // 每一面：法線與「從外面看過去的上方」
-            Vector3[,] faces =
-            {
-                { Vector3.right, Vector3.up },
-                { Vector3.left, Vector3.up },
-                { Vector3.forward, Vector3.up },
-                { Vector3.back, Vector3.up },
-                { Vector3.up, Vector3.forward },
-                { Vector3.down, Vector3.forward },
-            };
-            Vector3[] vertices = new Vector3[24];
-            Vector3[] normals = new Vector3[24];
-            Vector2[] uv = new Vector2[24];
-            int[] triangles = new int[36];
-            for (int f = 0; f < 6; f++)
-            {
-                Vector3 normal = faces[f, 0];
-                Vector3 up = faces[f, 1];
-                Vector3 right = Vector3.Cross(normal, up);
-                float halfRight = Mathf.Abs(Vector3.Dot(half, right));
-                float halfUp = Mathf.Abs(Vector3.Dot(half, up));
-                Vector3 center = normal * Mathf.Abs(Vector3.Dot(half, normal));
-                Vector2 repeat = new Vector2(halfRight * 2f / tile.x, halfUp * 2f / tile.y);
-                int v = f * 4;
-
-                // 左下、右下、左上、右上
-                vertices[v] = center - right * halfRight - up * halfUp;
-                vertices[v + 1] = center + right * halfRight - up * halfUp;
-                vertices[v + 2] = center - right * halfRight + up * halfUp;
-                vertices[v + 3] = center + right * halfRight + up * halfUp;
-                uv[v] = Vector2.zero;
-                uv[v + 1] = new Vector2(repeat.x, 0f);
-                uv[v + 2] = new Vector2(0f, repeat.y);
-                uv[v + 3] = repeat;
-                for (int i = 0; i < 4; i++)
-                {
-                    normals[v + i] = normal;
-                }
-
-                // 從外面看是順時針：左下 → 左上 → 右上、左下 → 右上 → 右下
-                int t = f * 6;
-                triangles[t] = v;
-                triangles[t + 1] = v + 2;
-                triangles[t + 2] = v + 3;
-                triangles[t + 3] = v;
-                triangles[t + 4] = v + 3;
-                triangles[t + 5] = v + 1;
-            }
+            // 幾何在執行期的 BoxMeshes（方便測試）；plainCaps 時屋頂不貼窗戶
+            BoxMeshes.Tiled(size, tile, plainCaps, out Vector3[] vertices, out Vector3[] normals, out Vector2[] uv, out int[] triangles);
 
             return CreateMesh("TiledBox", vertices, normals, uv, triangles);
         }
@@ -349,6 +302,8 @@ namespace MotorAndSpeed.EditorTools
             }
 
             Dictionary<Material, List<CombineInstance>> groups = new Dictionary<Material, List<CombineInstance>>();
+            // 每個 OBJ 都有自己的一份材質，但都來自同一份 palette.mtl：同名就是同一種，合併成一組省 draw call
+            Dictionary<string, Material> objMaterials = new Dictionary<string, Material>();
             Matrix4x4 toRoot = root.worldToLocalMatrix;
             MeshFilter[] filters = root.GetComponentsInChildren<MeshFilter>(true);
             foreach (MeshFilter filter in filters)
@@ -364,6 +319,14 @@ namespace MotorAndSpeed.EditorTools
                     Material material = materials[Mathf.Min(sub, materials.Length - 1)];
                     if (material == null)
                         continue;
+
+                    if (AssetDatabase.GetAssetPath(material).EndsWith(".obj", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (objMaterials.TryGetValue(material.name, out Material shared))
+                            material = shared;
+                        else
+                            objMaterials[material.name] = material;
+                    }
 
                     if (!groups.TryGetValue(material, out List<CombineInstance> list))
                     {

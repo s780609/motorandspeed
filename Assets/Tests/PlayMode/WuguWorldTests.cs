@@ -267,8 +267,53 @@ namespace MotorAndSpeed.Tests
             int boxes = Object.FindObjectsByType<BoxCollider>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
 
             Assert.LessOrEqual(objects, 26000, $"場景物件 {objects} 個");
-            // 含執行時生成的 120 台 NPC 車輛碰撞體
-            Assert.LessOrEqual(boxes, 16200, $"BoxCollider {boxes} 個");
+            // 含執行時生成的 120 台 NPC 車輛碰撞體，以及每棟街屋補上的另一側騎樓柱（收在 Lot 身上，不增加物件數）
+            Assert.LessOrEqual(boxes, 19000, $"BoxCollider {boxes} 個");
+        }
+
+        [UnityTest]
+        public IEnumerator Streets_HaveStreetLights()
+        {
+            yield return LoadWorld();
+            int chunks = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None)
+                .Where(r => r.name.StartsWith("Combined_") && (r.sharedMaterial.name == "StreetLampHead" || r.sharedMaterial.name == "lamp_head"))
+                .Select(r => r.transform.parent)
+                .Distinct()
+                .Count();
+
+            Assert.GreaterOrEqual(chunks, 50, $"只有 {chunks} 個區塊有路燈");
+        }
+
+        [UnityTest]
+        public IEnumerator Signals_HaveMastArms()
+        {
+            yield return LoadWorld();
+            Transform[] signals = Object.FindObjectsByType<TrafficSignal>(FindObjectsSortMode.None).Select(s => s.transform).ToArray();
+            Assert.Greater(signals.Length, 0);
+            foreach (Transform signal in signals)
+            {
+                Transform[] children = signal.GetComponentsInChildren<Transform>();
+                int poles = children.Count(t => t.name == "SignalPole");
+                Assert.AreEqual(poles, children.Count(t => t.name == "SignalArm"), $"{signal.name} 每支燈桿都要有懸臂");
+                foreach (Transform lamp in children.Where(t => t.name == "Lamp"))
+                {
+                    Assert.GreaterOrEqual(lamp.position.y, 5f, $"{signal.name} 的燈要掛在懸臂上，高過大貨車");
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Chunks_DrawCallBudget()
+        {
+            yield return LoadWorld();
+            // 每種材質合併成一個 renderer；招牌、外牆配色的種類多，熱鬧的區塊本來就有近百種材質。
+            // 街景美化後最多 105 個（整個世界的合併物件從 4095 增加到 4721），上限防止之後再失控增加
+            Transform busiest = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)
+                .Where(t => t.name.StartsWith("Chunk_"))
+                .OrderByDescending(t => t.GetComponentsInChildren<MeshRenderer>().Length)
+                .First();
+            int count = busiest.GetComponentsInChildren<MeshRenderer>().Length;
+            Assert.LessOrEqual(count, 110, $"最多的區塊 {busiest.name} 有 {count} 個 renderer");
         }
 
         private IEnumerator LoadWorld()

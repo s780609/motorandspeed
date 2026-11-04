@@ -388,6 +388,14 @@ namespace MotorAndSpeed.EditorTools
             return items[_random.Next(items.Count)];
         }
 
+        /// <summary>
+        /// 用指定的亂數挑選（美化細節用位置種子，不能動到共用亂數的呼叫順序）。
+        /// </summary>
+        internal static T Pick<T>(IReadOnlyList<T> items, System.Random random)
+        {
+            return items[random.Next(items.Count)];
+        }
+
         internal static Material Textured(string materialName, string textureName, bool alphaClip = false)
         {
             Material material = PrototypeSceneBuilder.GetMaterial(materialName, "#FFFFFF");
