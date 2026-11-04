@@ -61,7 +61,6 @@ namespace MotorAndSpeed.EditorTools
         private static readonly string[] JacketColors = { "#5B7C99", "#C94F4F", "#3D3D3D", "#E0B04A", "#6C9A5B", "#EDEDED" };
         private static readonly string[] HelmetColors = { "#F2F2F2", "#D63B3B", "#2B2B2B", "#F2C94C", "#4A90D9" };
         private const string NPC_FOLDER = "Assets/Prefabs/Npc";
-        private static readonly Color FogColor = new Color(0.78f, 0.83f, 0.88f);
 
         private enum Level
         {
@@ -1146,7 +1145,7 @@ namespace MotorAndSpeed.EditorTools
             camera.transform.LookAt(start + Vector3.up * 0.9f);
             camera.farClipPlane = FOG_END + 30f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = FogColor;
+            camera.backgroundColor = SceneAtmosphere.FogColor;
             PrototypeSceneBuilder.SetReference(camera.gameObject.AddComponent<ChaseCamera>(), "_target", controller);
             PrototypeSceneBuilder.SetReference(camera.gameObject.AddComponent<SpeedHud>(), "_target", controller);
             camera.gameObject.AddComponent<MapAttribution>();
@@ -1348,12 +1347,8 @@ namespace MotorAndSpeed.EditorTools
 
         private static void ApplyAtmosphere()
         {
-            // 霧可以讓遠處自然淡出，也讓相機不用畫太遠，減輕顯示卡負擔
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = FOG_START;
-            RenderSettings.fogEndDistance = FOG_END;
-            RenderSettings.fogColor = FogColor;
+            // 霧可以讓遠處自然淡出，也讓相機不用畫太遠，減輕顯示卡負擔；陽光、天空、後製與測試場景共用
+            SceneAtmosphere.Apply(Camera.main, true, FOG_START, FOG_END);
         }
 
         private static Level LevelOf(EdgeData edge)

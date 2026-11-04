@@ -53,6 +53,7 @@ namespace MotorAndSpeed.EditorTools
             SetReference(camera.gameObject.AddComponent<ChaseCamera>(), "_target", controller);
             SetReference(camera.gameObject.AddComponent<SpeedHud>(), "_target", controller);
             AddGameSounds();
+            SceneAtmosphere.Apply(camera, false, 150f, 520f);
 
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
             AddSceneToBuild(SCENE_PATH);
